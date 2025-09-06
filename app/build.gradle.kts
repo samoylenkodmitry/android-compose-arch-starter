@@ -2,7 +2,8 @@ plugins {
   alias(libs.plugins.android.app)
   alias(libs.plugins.kotlin.android)
   alias(libs.plugins.hilt)
-  kotlin("kapt")
+  alias(libs.plugins.kotlin.compose)
+  alias(libs.plugins.kotlin.kapt)
 }
 
 android {
@@ -18,6 +19,11 @@ android {
   buildFeatures { compose = true }
   composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.get() }
   packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+  }
+  kotlinOptions { jvmTarget = "17" }
 }
 
 dependencies {

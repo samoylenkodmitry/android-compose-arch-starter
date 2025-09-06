@@ -20,8 +20,8 @@ interface ParamInit<P> { fun initOnce(params: P) }
 // Resolver API (UI-friendly, no Hilt here)
 typealias PresenterKey = String?
 
-fun interface PresenterResolver {
-  @Composable fun <T: Any> resolve(klass: KClass<T>, key: PresenterKey = null): T
+interface PresenterResolver {
+  @Composable fun <T : Any> resolve(klass: KClass<T>, key: PresenterKey?): T
 }
 
 val LocalPresenterResolver = staticCompositionLocalOf<PresenterResolver> {
