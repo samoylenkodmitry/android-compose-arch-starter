@@ -1,0 +1,43 @@
+plugins {
+  alias(libs.plugins.android.app)
+  alias(libs.plugins.kotlin.android)
+  alias(libs.plugins.hilt)
+  kotlin("kapt")
+}
+
+android {
+  namespace = "com.example.app"
+  compileSdk = 35
+  defaultConfig {
+    applicationId = "com.example.app"
+    minSdk = 24
+    targetSdk = 35
+    versionCode = 1
+    versionName = "1.0"
+  }
+  buildFeatures { compose = true }
+  composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.get() }
+  packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+}
+
+dependencies {
+  implementation(project(":core:designsystem"))
+  implementation(project(":core:common"))
+  implementation(project(":feature:catalog:api"))
+  implementation(project(":feature:catalog:ui"))
+  implementation(project(":feature:catalog:impl"))
+
+  implementation(libs.activity.compose)
+  implementation(libs.compose.ui)
+  implementation(libs.compose.material3)
+  implementation(libs.compose.preview)
+  debugImplementation(libs.compose.tooling)
+
+  implementation(libs.lifecycle.runtime.compose)
+  implementation(libs.lifecycle.viewmodel.compose)
+  implementation(libs.navigation.compose)
+
+  implementation(libs.hilt.android)
+  kapt(libs.hilt.compiler)
+  implementation(libs.hilt.nav.compose)
+}
