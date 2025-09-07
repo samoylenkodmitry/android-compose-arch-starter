@@ -6,7 +6,7 @@ This project demonstrates a modular, feature-first architecture for Jetpack Comp
 - **app** – Application module hosting the navigation graph and providing Hilt bindings for presenters and the app scope.
 - **core**
   - `core:designsystem` – Compose UI theme and design components.
-  - `core:common` – Shared utilities including presenter infrastructure and app‑wide classes.
+  - `core:common` – Shared utilities including presenter infrastructure and app-wide classes.
 - **feature** – Each feature is composed of three modules:
   - `feature:*:api` – Public contracts (routes, state, presenter interfaces).
   - `feature:*:ui` – Pure Compose screens depending only on the API and core modules.
