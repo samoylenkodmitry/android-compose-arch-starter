@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -24,15 +25,20 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
   @Inject lateinit var resolver: HiltPresenterResolver
+  @Inject lateinit var appManager: AppScopeManager
 
   override fun onCreate(savedInstanceState: android.os.Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
       AppTheme {
         val nav = rememberNavController()
-        val navigation = remember(nav) { NavigationActions(nav) }
-        val app = remember(navigation) { App(navigation) }
-        AppHolder.app = app
+        val app = remember(nav) {
+          val actions = NavigationActions(nav)
+          App(actions).also { appManager.create(it) }
+        }
+        DisposableEffect(Unit) {
+          onDispose { appManager.clear() }
+        }
         CompositionLocalProvider(
           LocalPresenterResolver provides resolver
         ) {
