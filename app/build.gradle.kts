@@ -15,6 +15,7 @@ android {
     targetSdk = 35
     versionCode = 1
     versionName = "1.0"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   buildFeatures { compose = true }
   composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.get() }
@@ -49,4 +50,9 @@ dependencies {
   implementation(libs.hilt.android)
   kapt(libs.hilt.compiler)
   implementation(libs.hilt.nav.compose)
+
+  androidTestImplementation(libs.compose.ui.test.junit4)
+  debugImplementation(libs.compose.ui.test.manifest)
+  androidTestImplementation(libs.test.ext.junit)
+  androidTestImplementation(libs.test.espresso.core)
 }
