@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun CatalogScreen(
   presenter: CatalogPresenter? = null,
-  onItemClick: (String) -> Unit = {}
 ) {
   val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
   val state by p.state.collectAsStateWithLifecycle()
@@ -34,7 +33,7 @@ fun CatalogScreen(
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     state.items.forEach { item ->
-      Text("• " + item, Modifier.clickable { onItemClick(item) })
+      Text("• " + item, Modifier.clickable { p.onItemClick(item) })
     }
   }
 }
@@ -44,6 +43,7 @@ private class FakeCatalogPresenter : CatalogPresenter {
   private val _s = MutableStateFlow(CatalogState(listOf("Alpha","Beta","Gamma")))
   override val state: StateFlow<CatalogState> = _s
   override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + "!") }
+  override fun onItemClick(id: String) {}
 }
 
 @Preview(showBackground = true)

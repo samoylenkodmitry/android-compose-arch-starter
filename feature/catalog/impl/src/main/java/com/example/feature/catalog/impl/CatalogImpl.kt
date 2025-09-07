@@ -3,6 +3,7 @@ package com.example.feature.catalog.impl
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.common.app.App
 import com.example.feature.catalog.api.CatalogPresenter
 import com.example.feature.catalog.api.CatalogState
 import dagger.Module
@@ -31,7 +32,8 @@ class FakeCatalogRepo @Inject constructor() : CatalogRepo {
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
   private val repo: CatalogRepo,
-  private val saved: SavedStateHandle
+  private val saved: SavedStateHandle,
+  private val app: App
 ) : ViewModel(), CatalogPresenter {
   private val _state = MutableStateFlow(CatalogState())
   override val state: StateFlow<CatalogState> = _state
@@ -40,6 +42,10 @@ class CatalogViewModel @Inject constructor(
     viewModelScope.launch {
       _state.value = _state.value.copy(items = repo.items())
     }
+  }
+
+  override fun onItemClick(id: String) {
+    app.openDetail(id)
   }
 }
 
