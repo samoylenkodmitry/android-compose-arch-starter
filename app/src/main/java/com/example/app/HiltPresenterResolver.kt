@@ -1,7 +1,7 @@
 package com.example.app
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.core.common.presenter.PresenterKey

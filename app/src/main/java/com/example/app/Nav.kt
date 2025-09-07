@@ -13,9 +13,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.example.core.designsystem.AppTheme
 
-@kotlinx.serialization.Serializable data object Home
-@kotlinx.serialization.Serializable data object Catalog
-
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
