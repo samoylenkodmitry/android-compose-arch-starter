@@ -1,7 +1,7 @@
 plugins {
-  alias(libs.plugins.kotlin)
-  alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.kotlin.serialization)
+  id("org.jetbrains.kotlin.jvm")
+  id("org.jetbrains.kotlin.plugin.compose")
+  id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 dependencies {
