@@ -5,13 +5,13 @@ import javax.inject.Singleton
 
 @Singleton
 class App @Inject constructor() {
-    private lateinit var navigation: NavigationActions
+    private var navigation: NavigationActions? = null
 
     fun bindNavigation(actions: NavigationActions) {
         navigation = actions
     }
 
     fun openDetail(id: String) {
-        navigation.openDetail(id)
+        navigation?.openDetail(id)
     }
 }
