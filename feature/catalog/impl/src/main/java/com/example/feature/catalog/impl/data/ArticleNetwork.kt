@@ -27,7 +27,7 @@ interface WikipediaService {
 
 interface SummarizerService {
   @GET("{prompt}")
-  suspend fun summarize(@Path(value = "prompt", encoded = true) prompt: String): String
+  suspend fun summarize(@Path("prompt") prompt: String): String
 }
 
 @Serializable

@@ -17,7 +17,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
-import java.net.URLEncoder
 import javax.inject.Inject
 
 interface ArticleRepo {
@@ -38,7 +37,7 @@ class ArticleRepository @Inject constructor(
 
   override suspend fun refresh() {
     val summary = wiki.randomSummary()
-    val prompt = URLEncoder.encode("Summarize this in 3 bullets:\n\n${summary.extract}", "UTF-8")
+    val prompt = "Summarize this in 3 bullets:\n\n${summary.extract}"
     val summaryText = retry { summarizer.summarize(prompt) }
     val words = summary.extract.split("\\W+".toRegex()).filter { it.length > 3 }
     val original = words.randomOrNull() ?: return
