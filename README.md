@@ -25,7 +25,7 @@ The `core:common` module provides `PresenterResolver` and helpers such as `remem
 
 ## Hilt structure
 - `@HiltAndroidApp` `MyApp` is the entry point for dependency injection.
-- A custom `AppComponent` and `AppScopeManager` create an application‑scoped component that holds an `App` object with navigation actions.
+- A custom `AppComponent` and `AppScopeManager` create an application-scoped component that holds an `App` object with navigation actions.
 - `HiltPresenterResolver` is injected into the `MainActivity` and uses multibindings to map presenter interfaces to their `@HiltViewModel` implementations.
 - Each feature implementation module contributes to that map and provides its own repository bindings (e.g. `CatalogBindings`, `DetailBindings`).
 
