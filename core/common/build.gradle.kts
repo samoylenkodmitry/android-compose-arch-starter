@@ -1,6 +1,6 @@
 plugins {
-  alias(libs.plugins.kotlin)
-  alias(libs.plugins.kotlin.compose)
+  id("org.jetbrains.kotlin.jvm")
+  id("org.jetbrains.kotlin.plugin.compose")
 }
 
 dependencies {
