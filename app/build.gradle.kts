@@ -32,6 +32,9 @@ dependencies {
   implementation(project(":feature:catalog:api"))
   implementation(project(":feature:catalog:ui"))
   implementation(project(":feature:catalog:impl"))
+  implementation(project(":feature:detail:api"))
+  implementation(project(":feature:detail:ui"))
+  implementation(project(":feature:detail:impl"))
 
   implementation(libs.activity.compose)
   implementation(libs.compose.ui)

@@ -4,8 +4,11 @@ plugins {
 }
 
 dependencies {
+  implementation(project(":core:common"))
   implementation(libs.compose.runtime)
   implementation(libs.kotlinx.coroutines.core)
-  testImplementation(libs.junit)
-  testImplementation(libs.kotlinx.coroutines.test)
+}
+
+kotlin {
+  jvmToolchain(17)
 }

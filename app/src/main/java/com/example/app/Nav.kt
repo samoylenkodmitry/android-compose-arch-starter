@@ -5,7 +5,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.feature.catalog.ui.CatalogScreen
-import com.example.feature.catalog.api.LocalPresenterResolver
+import com.example.feature.detail.ui.DetailScreen
+import com.example.core.common.presenter.LocalPresenterResolver
 import javax.inject.Inject
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.activity.ComponentActivity
@@ -38,6 +39,10 @@ class MainActivity : ComponentActivity() {
 fun AppNavHost() {
   val nav = rememberNavController()
   NavHost(nav, startDestination = "catalog") {
-    composable("catalog") { CatalogScreen() }
+    composable("catalog") { CatalogScreen(onItemClick = { id -> nav.navigate("detail/$id") }) }
+    composable("detail/{id}") { back ->
+      val id = back.arguments?.getString("id") ?: ""
+      DetailScreen(id)
+    }
   }
 }

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example.feature.catalog.ui"
+  namespace = "com.example.feature.detail.ui"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
   buildFeatures { compose = true }
@@ -18,7 +18,7 @@ android {
 }
 
 dependencies {
-  implementation(project(":feature:catalog:api"))
+  implementation(project(":feature:detail:api"))
   implementation(project(":core:designsystem"))
   implementation(project(":core:common"))
 
