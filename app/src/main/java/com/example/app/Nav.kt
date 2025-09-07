@@ -9,7 +9,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.core.common.presenter.LocalPresenterResolver
-import com.example.core.common.app.App
 import com.example.core.designsystem.AppTheme
 import com.example.feature.catalog.api.Catalog
 import com.example.feature.catalog.ui.CatalogScreen
@@ -22,7 +21,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
   @Inject lateinit var resolver: HiltPresenterResolver
-  @Inject lateinit var app: App
+  @Inject lateinit var navigation: NavigationActions
 
   override fun onCreate(savedInstanceState: android.os.Bundle?) {
     super.onCreate(savedInstanceState)
@@ -31,7 +30,7 @@ class MainActivity : ComponentActivity() {
         androidx.compose.runtime.CompositionLocalProvider(
           LocalPresenterResolver provides resolver
         ) {
-          AppNavHost(app)
+          AppNavHost(navigation)
         }
       }
     }
@@ -39,9 +38,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavHost(app: App) {
+fun AppNavHost(navigation: NavigationActions) {
   val nav = rememberNavController()
-  LaunchedEffect(nav) { app.bindNavigation(NavigationActions(nav)) }
+  LaunchedEffect(nav) { navigation.bind(nav) }
   NavHost(nav, startDestination = Catalog) {
     composable<Catalog> { CatalogScreen() }
     composable<Detail> {
