@@ -18,23 +18,27 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 @Composable
-fun DetailScreen(id: String, presenter: DetailPresenter? = null) {
-  val p = presenter ?: rememberPresenter<DetailPresenter, String>(params = id)
+fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
+  val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
   val state by p.state.collectAsStateWithLifecycle()
   Column(Modifier.padding(16.dp)) {
-    Text("Detail", style = MaterialTheme.typography.titleLarge)
-    Text(state.item)
+    Text(state.title, style = MaterialTheme.typography.titleLarge)
+    Text(state.content)
+    if (state.ipa != null) {
+      Text("IPA: ${state.ipa}", style = MaterialTheme.typography.bodySmall)
+    }
+    Text("Source: ${state.sourceUrl}", style = MaterialTheme.typography.bodySmall)
   }
 }
 
 private class FakeDetailPresenter : DetailPresenter {
-  private val _s = MutableStateFlow(DetailState("Preview"))
+  private val _s = MutableStateFlow(DetailState(title = "Preview", content = "Content"))
   override val state: StateFlow<DetailState> = _s
-  override fun initOnce(params: String) {}
+  override fun initOnce(params: Int) {}
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun PreviewDetail() {
-  AppTheme { DetailScreen(id = "1", presenter = FakeDetailPresenter()) }
+  AppTheme { DetailScreen(id = 1, presenter = FakeDetailPresenter()) }
 }

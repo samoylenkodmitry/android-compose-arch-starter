@@ -18,6 +18,7 @@ import com.example.core.common.presenter.rememberPresenter
 import com.example.core.designsystem.AppTheme
 import com.example.feature.catalog.api.CatalogPresenter
 import com.example.feature.catalog.api.CatalogState
+import com.example.feature.catalog.api.CatalogItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -33,17 +34,21 @@ fun CatalogScreen(
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     state.items.forEach { item ->
-      Text("• " + item, Modifier.clickable { p.onItemClick(item) })
+      Column(Modifier.clickable { p.onItemClick(item.id) }) {
+        Text(item.title)
+        Text(item.summary, style = MaterialTheme.typography.bodySmall)
+      }
+      Spacer(Modifier.height(8.dp))
     }
   }
 }
 
 // ---- Fake for preview (no Hilt in UI module) ----
 private class FakeCatalogPresenter : CatalogPresenter {
-  private val _s = MutableStateFlow(CatalogState(listOf("Alpha","Beta","Gamma")))
+  private val _s = MutableStateFlow(CatalogState(listOf(CatalogItem(1, "Alpha", "Summary"))))
   override val state: StateFlow<CatalogState> = _s
-  override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + "!") }
-  override fun onItemClick(id: String) {}
+  override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + CatalogItem(_s.value.items.size+1,"New","Sum")) }
+  override fun onItemClick(id: Int) {}
 }
 
 @Preview(showBackground = true)

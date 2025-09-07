@@ -7,7 +7,7 @@ import com.example.feature.detail.api.Detail
 class NavigationActions(
     private val navController: NavHostController
 ) : NavigationActionsApi {
-    override fun openDetail(id: String) {
+    override fun openDetail(id: Int) {
         navController.navigate(Detail(id))
     }
 }

@@ -3,6 +3,7 @@ plugins {
   id("org.jetbrains.kotlin.android")
   alias(libs.plugins.hilt)
   id("org.jetbrains.kotlin.kapt")
+  alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -23,6 +24,14 @@ dependencies {
   implementation(libs.hilt.android)
   kapt(libs.hilt.compiler)
   implementation(libs.lifecycle.viewmodel.compose)
+  implementation(libs.retrofit.core)
+  implementation(libs.retrofit.kotlinx)
+  implementation(libs.retrofit.scalars)
+  implementation(libs.okhttp.logging)
+  implementation(libs.room.runtime)
+  implementation(libs.room.ktx)
+  implementation(libs.kotlinx.serialization.json)
+  kapt(libs.room.compiler)
 
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
