@@ -45,7 +45,7 @@ class CatalogViewModel @Inject constructor(
   }
 
   override fun onItemClick(id: String) {
-    app.openDetail(id)
+    app.navigation.openDetail(id)
   }
 }
 

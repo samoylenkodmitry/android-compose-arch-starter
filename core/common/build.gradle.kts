@@ -1,16 +1,14 @@
 plugins {
   alias(libs.plugins.kotlin)
-  alias(libs.plugins.kotlin.kapt)
+  alias(libs.plugins.kotlin.compose)
 }
 
 dependencies {
   implementation(libs.kotlinx.coroutines.core)
+  implementation(libs.compose.runtime)
   implementation(libs.javax.inject)
-  implementation(libs.dagger)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
-
-  kapt(libs.hilt.compiler)
 }
 
 kotlin {
