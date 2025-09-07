@@ -12,4 +12,5 @@ data class CatalogState(val items: List<String> = emptyList())
 interface CatalogPresenter {
   val state: StateFlow<CatalogState>
   fun onRefresh()
+  fun onItemClick(id: String)
 }

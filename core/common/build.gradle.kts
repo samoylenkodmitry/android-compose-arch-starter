@@ -4,8 +4,9 @@ plugins {
 }
 
 dependencies {
-  implementation(libs.compose.runtime)
   implementation(libs.kotlinx.coroutines.core)
+  implementation(libs.compose.runtime)
+  implementation(libs.javax.inject)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
 }

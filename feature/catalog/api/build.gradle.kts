@@ -1,12 +1,10 @@
 plugins {
   alias(libs.plugins.kotlin)
-  alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
 }
 
 dependencies {
   implementation(project(":core:common"))
-  implementation(libs.compose.runtime)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.serialization.json)
 }

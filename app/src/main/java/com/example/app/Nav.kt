@@ -1,34 +1,48 @@
 package com.example.app
 
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.example.feature.catalog.ui.CatalogScreen
-import com.example.feature.detail.ui.DetailScreen
-import com.example.feature.catalog.api.Catalog
-import com.example.feature.detail.api.Detail
+import com.example.core.common.app.App
 import com.example.core.common.presenter.LocalPresenterResolver
-import javax.inject.Inject
-import dagger.hilt.android.AndroidEntryPoint
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import com.example.core.designsystem.AppTheme
+import com.example.feature.catalog.api.Catalog
+import com.example.feature.catalog.ui.CatalogScreen
+import com.example.feature.detail.api.Detail
+import com.example.feature.detail.ui.DetailScreen
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
   @Inject lateinit var resolver: HiltPresenterResolver
+  @Inject lateinit var appManager: AppScopeManager
 
   override fun onCreate(savedInstanceState: android.os.Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
       AppTheme {
-        androidx.compose.runtime.CompositionLocalProvider(
+        val nav = rememberNavController()
+        val app = remember(nav) {
+          val actions = NavigationActions(nav)
+          App(actions).also { appManager.create(it) }
+        }
+        DisposableEffect(Unit) {
+          onDispose { appManager.clear() }
+        }
+        CompositionLocalProvider(
           LocalPresenterResolver provides resolver
         ) {
-          AppNavHost()
+          AppNavHost(nav)
         }
       }
     }
@@ -36,10 +50,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavHost() {
-  val nav = rememberNavController()
+fun AppNavHost(nav: NavHostController) {
   NavHost(nav, startDestination = Catalog) {
-    composable<Catalog> { CatalogScreen(onItemClick = { id -> nav.navigate(Detail(id)) }) }
+    composable<Catalog> { CatalogScreen() }
     composable<Detail> {
       val args = it.toRoute<Detail>()
       DetailScreen(args.id)
