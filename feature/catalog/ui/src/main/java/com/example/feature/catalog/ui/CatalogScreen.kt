@@ -1,5 +1,6 @@
 package com.example.feature.catalog.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -13,16 +14,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.core.common.presenter.rememberPresenter
 import com.example.core.designsystem.AppTheme
 import com.example.feature.catalog.api.CatalogPresenter
 import com.example.feature.catalog.api.CatalogState
-import com.example.feature.catalog.api.rememberPresenter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun CatalogScreen(
-  presenter: CatalogPresenter? = null
+  presenter: CatalogPresenter? = null,
+  onItemClick: (String) -> Unit = {}
 ) {
   val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
   val state by p.state.collectAsStateWithLifecycle()
@@ -31,7 +33,9 @@ fun CatalogScreen(
     Spacer(Modifier.height(8.dp))
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
-    state.items.forEach { Text("• " + it) }
+    state.items.forEach { item ->
+      Text("• " + item, Modifier.clickable { onItemClick(item) })
+    }
   }
 }
 

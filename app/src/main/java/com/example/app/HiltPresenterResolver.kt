@@ -1,11 +1,11 @@
 package com.example.app
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.feature.catalog.api.PresenterKey
-import com.example.feature.catalog.api.PresenterResolver
+import com.example.core.common.presenter.PresenterKey
+import com.example.core.common.presenter.PresenterResolver
 import javax.inject.Inject
 import javax.inject.Singleton
 

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example.core.designsystem"
+  namespace = "com.example.feature.detail.ui"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
   buildFeatures { compose = true }
@@ -18,8 +18,13 @@ android {
 }
 
 dependencies {
+  implementation(project(":feature:detail:api"))
+  implementation(project(":core:designsystem"))
+  implementation(project(":core:common"))
+
   implementation(libs.compose.ui)
   implementation(libs.compose.material3)
   implementation(libs.compose.preview)
+  implementation(libs.lifecycle.runtime.compose)
   debugImplementation(libs.compose.tooling)
 }

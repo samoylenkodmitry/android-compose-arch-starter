@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example.feature.catalog.impl"
+  namespace = "com.example.feature.detail.impl"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
   compileOptions {
@@ -17,7 +17,7 @@ android {
 }
 
 dependencies {
-  implementation(project(":feature:catalog:api"))
+  implementation(project(":feature:detail:api"))
   implementation(project(":core:common"))
 
   implementation(libs.hilt.android)

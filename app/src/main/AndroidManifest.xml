@@ -1,8 +1,8 @@
-<manifest package="com.example.app">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.app">
   <application
     android:name=".MyApp"
-    android:label="ComposeArchStarter"
-    android:theme="@style/Theme.Material3.Dark">
+    android:label="ComposeArchStarter">
     <activity
       android:name=".MainActivity"
       android:exported="true">

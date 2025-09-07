@@ -21,5 +21,8 @@ include(
   ":core:common",
   ":feature:catalog:api",
   ":feature:catalog:ui",
-  ":feature:catalog:impl"
+  ":feature:catalog:impl",
+  ":feature:detail:api",
+  ":feature:detail:ui",
+  ":feature:detail:impl"
 )
