@@ -18,6 +18,7 @@ android {
 
 dependencies {
   implementation(project(":feature:detail:api"))
+  implementation(project(":feature:catalog:impl"))
   implementation(project(":core:common"))
 
   implementation(libs.hilt.android)

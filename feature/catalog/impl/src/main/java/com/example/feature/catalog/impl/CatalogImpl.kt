@@ -1,50 +1,44 @@
 package com.example.feature.catalog.impl
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.common.app.App
 import com.example.feature.catalog.api.CatalogPresenter
 import com.example.feature.catalog.api.CatalogState
+import com.example.feature.catalog.api.CatalogItem
+import com.example.feature.catalog.impl.data.ArticleRepo
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// Simple fake repo kept local to the feature impl for the starter
-interface CatalogRepo { suspend fun items(): List<String> }
-
-class FakeCatalogRepo @Inject constructor() : CatalogRepo {
-  override suspend fun items(): List<String> {
-    delay(150) // simulate IO
-    return listOf("One", "Two", "Three", "Four")
-  }
-}
-
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
-  private val repo: CatalogRepo,
-  private val saved: SavedStateHandle,
+  private val repo: ArticleRepo,
   private val app: App
 ) : ViewModel(), CatalogPresenter {
   private val _state = MutableStateFlow(CatalogState())
   override val state: StateFlow<CatalogState> = _state
 
-  override fun onRefresh() {
+  init {
     viewModelScope.launch {
-      _state.value = _state.value.copy(items = repo.items())
+      repo.articles.collect { list ->
+        _state.value = CatalogState(list.map { CatalogItem(it.id, it.title, it.summary) })
+      }
     }
   }
 
-  override fun onItemClick(id: String) {
+  override fun onRefresh() {
+    viewModelScope.launch { repo.refresh() }
+  }
+
+  override fun onItemClick(id: Int) {
     app.navigation.openDetail(id)
   }
 }
@@ -52,9 +46,6 @@ class CatalogViewModel @Inject constructor(
 @Module
 @InstallIn(SingletonComponent::class)
 object CatalogBindings {
-  @Provides fun provideCatalogRepo(): CatalogRepo = FakeCatalogRepo()
-
-  // Presenter -> VM class map entry
-  @Provides @IntoMap @ClassKey(CatalogPresenter::class)
+  @dagger.Provides @IntoMap @ClassKey(CatalogPresenter::class)
   fun bindCatalogPresenter(): Class<out ViewModel> = CatalogViewModel::class.java
 }
