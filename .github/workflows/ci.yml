@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: '8.4'
+          arguments: build
+      - name: Unit tests
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: '8.4'
+          arguments: test
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: '**/build/test-results/test/*.xml'
