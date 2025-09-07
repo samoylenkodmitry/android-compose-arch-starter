@@ -1,6 +1,6 @@
 # Android Compose Architecture Starter
 
-This project demonstrates a modular, feature‑first architecture for Jetpack Compose apps.  It splits functionality into coarse **modules**, separates concerns by **layers**, and wires everything together through **Hilt**.
+This project demonstrates a modular, feature-first architecture for Jetpack Compose apps. It splits functionality into coarse **modules**, separates concerns by **layers**, and wires everything together through **Hilt**.
 
 ## Module structure
 - **app** – Application module hosting the navigation graph and providing Hilt bindings for presenters and the app scope.
