@@ -38,3 +38,7 @@ compose-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.6.3" }
 javax-inject = { module = "javax.inject:javax.inject", version = "1" }
 dagger = { module = "com.google.dagger:dagger", version.ref = "hilt" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "compose" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "compose" }
+test-ext-junit = { module = "androidx.test.ext:junit", version = "1.2.1" }
+test-espresso-core = { module = "androidx.test.espresso:espresso-core", version = "3.6.1" }
