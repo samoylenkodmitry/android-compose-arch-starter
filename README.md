@@ -65,3 +65,13 @@ object FooBindings {
 }
 ```
 5. Wire the feature into navigation by updating `NavigationActions` if needed.
+
+## Release
+To publish a release APK through GitHub Actions, create and push an annotated tag:
+
+```bash
+git tag -a v0.1.0 -m "Release 0.1.0"
+git push origin v0.1.0
+```
+
+The CI workflow will build and upload the release APK for that tag.
