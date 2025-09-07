@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
 
+env:
+  GRADLE_VERSION: '8.4'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,16 +16,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build
+      - name: Build and test
         uses: gradle/gradle-build-action@v3
         with:
-          gradle-version: '8.4'
+          gradle-version: ${{ env.GRADLE_VERSION }}
           arguments: build
-      - name: Unit tests
-        uses: gradle/gradle-build-action@v3
-        with:
-          gradle-version: '8.4'
-          arguments: test
       - name: Publish test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
