@@ -2,6 +2,8 @@ package com.example.feature.catalog.impl
 
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import com.example.core.common.app.App
+import com.example.core.common.app.NavigationActions
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,7 +21,8 @@ class CatalogViewModelTest {
     val repo = object : CatalogRepo {
       override suspend fun items(): List<String> = listOf("One", "Two")
     }
-    val vm = CatalogViewModel(repo, SavedStateHandle())
+    val nav = object : NavigationActions { override fun openDetail(id: String) {} }
+    val vm = CatalogViewModel(repo, SavedStateHandle(), App(nav))
 
     vm.onRefresh()
     advanceUntilIdle()
