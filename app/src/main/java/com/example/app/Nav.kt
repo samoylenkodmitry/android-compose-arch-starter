@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.example.feature.catalog.ui.CatalogScreen
 import com.example.feature.detail.ui.DetailScreen
+import com.example.feature.catalog.api.Catalog
+import com.example.feature.detail.api.Detail
 import com.example.core.common.presenter.LocalPresenterResolver
 import javax.inject.Inject
 import dagger.hilt.android.AndroidEntryPoint
@@ -35,11 +38,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavHost() {
   val nav = rememberNavController()
-  NavHost(nav, startDestination = "catalog") {
-    composable("catalog") { CatalogScreen(onItemClick = { id -> nav.navigate("detail/$id") }) }
-    composable("detail/{id}") { back ->
-      val id = back.arguments?.getString("id") ?: ""
-      DetailScreen(id)
+  NavHost(nav, startDestination = Catalog) {
+    composable<Catalog> { CatalogScreen(onItemClick = { id -> nav.navigate(Detail(id)) }) }
+    composable<Detail> {
+      val args = it.toRoute<Detail>()
+      DetailScreen(args.id)
     }
   }
 }

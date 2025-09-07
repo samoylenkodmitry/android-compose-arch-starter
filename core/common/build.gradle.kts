@@ -9,3 +9,17 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
 }
+
+kotlin {
+  compilerOptions {
+    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+  }
+}
+
+java {
+  toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+}
+
+tasks.withType<JavaCompile>().configureEach {
+  options.release.set(17)
+}
