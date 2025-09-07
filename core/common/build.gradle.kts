@@ -12,7 +12,7 @@ dependencies {
 
 kotlin {
   compilerOptions {
-    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
   }
 }
 
@@ -21,5 +21,5 @@ java {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-  options.release.set(17)
+  options.release.set(21)
 }
