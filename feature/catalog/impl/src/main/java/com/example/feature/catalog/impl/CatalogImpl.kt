@@ -41,6 +41,10 @@ class CatalogViewModel @Inject constructor(
   override fun onItemClick(id: Int) {
     app.navigation.openDetail(id)
   }
+
+  override fun onSettingsClick() {
+    app.navigation.openSettings()
+  }
 }
 
 @Module

@@ -24,5 +24,8 @@ include(
   ":feature:catalog:impl",
   ":feature:detail:api",
   ":feature:detail:ui",
-  ":feature:detail:impl"
+  ":feature:detail:impl",
+  ":feature:settings:api",
+  ":feature:settings:ui",
+  ":feature:settings:impl"
 )

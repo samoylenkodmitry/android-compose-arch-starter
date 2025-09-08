@@ -31,6 +31,8 @@ fun CatalogScreen(
   Column(Modifier.padding(16.dp)) {
     Text("Catalog", style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(8.dp))
+    Button(onClick = p::onSettingsClick) { Text("Settings") }
+    Spacer(Modifier.height(8.dp))
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     state.items.forEach { item ->
@@ -49,6 +51,7 @@ private class FakeCatalogPresenter : CatalogPresenter {
   override val state: StateFlow<CatalogState> = _s
   override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + CatalogItem(_s.value.items.size+1,"New","Sum")) }
   override fun onItemClick(id: Int) {}
+  override fun onSettingsClick() {}
 }
 
 @Preview(showBackground = true)

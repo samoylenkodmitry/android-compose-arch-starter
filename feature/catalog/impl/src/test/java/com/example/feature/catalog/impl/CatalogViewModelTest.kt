@@ -27,7 +27,7 @@ class CatalogViewModelTest {
       override suspend fun refresh() { data.value = listOf(ArticleEntity(1,"One","S","C","u","o","t",null), ArticleEntity(2,"Two","S","C","u","o","t",null)) }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {} }
+    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
     val vm = CatalogViewModel(repo, App(nav))
 
     vm.onRefresh()
