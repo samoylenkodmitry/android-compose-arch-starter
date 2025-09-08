@@ -18,10 +18,10 @@ object SettingsPresenterBindings {
     @Provides
     @IntoMap
     @ClassKey(SettingsPresenter::class)
-    fun provideSettingsPresenterProvider(): PresenterProvider<SettingsViewModel> {
-        return object : PresenterProvider<SettingsViewModel> {
+    fun provideSettingsPresenterProvider(): PresenterProvider<*> {
+        return object : PresenterProvider<SettingsPresenter> {
             @Composable
-            override fun provide(key: String?): SettingsViewModel {
+            override fun provide(key: String?): SettingsPresenter {
                 return hiltViewModel<SettingsViewModel>(key = key)
             }
         }

@@ -10,11 +10,13 @@ import kotlin.reflect.KClass
 
 @Singleton
 class HiltPresenterResolver @Inject constructor(
-    private val presenterProviders: Map<Class<out ParamInit<*>>, @JvmSuppressWildcards PresenterProvider<*>>
+    private val presenterProviders: Map<Class<*>, @JvmSuppressWildcards PresenterProvider<*>>
 ) : PresenterResolver {
 
   @Composable
   override fun <T : ParamInit<*>> resolve(klass: KClass<T>, key: String?): T {
+    println("HiltPresenterResolver: Looking for ${klass.simpleName}")
+    println("HiltPresenterResolver: Available keys: ${presenterProviders.keys.map { it.simpleName }}")
     val provider = presenterProviders[klass.java]
         ?: error("No presenter binding for ${klass.simpleName}, map: $presenterProviders")
     

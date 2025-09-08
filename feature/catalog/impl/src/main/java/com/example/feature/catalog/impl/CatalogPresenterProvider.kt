@@ -17,10 +17,10 @@ object CatalogPresenterBindings {
     @Provides
     @IntoMap
     @ClassKey(CatalogPresenter::class)
-    fun provideCatalogPresenterProvider(): PresenterProvider<CatalogViewModel> {
-        return object : PresenterProvider<CatalogViewModel> {
+    fun provideCatalogPresenterProvider(): PresenterProvider<*> {
+        return object : PresenterProvider<CatalogPresenter> {
             @Composable
-            override fun provide(key: String?): CatalogViewModel {
+            override fun provide(key: String?): CatalogPresenter {
                 return hiltViewModel<CatalogViewModel>(key = key)
             }
         }

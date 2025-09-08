@@ -1,6 +1,5 @@
 package com.example.app
 
-import com.example.core.common.presenter.ParamInit
 import com.example.core.common.presenter.PresenterProvider
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -11,5 +10,5 @@ import dagger.multibindings.Multibinds
 @InstallIn(SingletonComponent::class)
 abstract class PresenterModule {
     @Multibinds
-    abstract fun presenterProviders(): Map<Class<out ParamInit<*>>, PresenterProvider<*>>
+    abstract fun presenterProviders(): Map<Class<*>, PresenterProvider<*>>
 }

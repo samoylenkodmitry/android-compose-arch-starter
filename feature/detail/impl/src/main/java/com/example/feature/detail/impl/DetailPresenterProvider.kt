@@ -17,10 +17,10 @@ object DetailPresenterBindings {
     @Provides
     @IntoMap
     @ClassKey(DetailPresenter::class)
-    fun provideDetailPresenterProvider(): PresenterProvider<DetailViewModel> {
-        return object : PresenterProvider<DetailViewModel> {
+    fun provideDetailPresenterProvider(): PresenterProvider<*> {
+        return object : PresenterProvider<DetailPresenter> {
             @Composable
-            override fun provide(key: String?): DetailViewModel {
+            override fun provide(key: String?): DetailPresenter {
                 return hiltViewModel<DetailViewModel>(key = key)
             }
         }
