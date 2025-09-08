@@ -2,7 +2,7 @@ plugins {
   alias(libs.plugins.android.lib)
   id("org.jetbrains.kotlin.android")
   alias(libs.plugins.hilt)
-  id("org.jetbrains.kotlin.kapt")
+  id("com.google.devtools.ksp")
   alias(libs.plugins.kotlin.serialization)
 }
 
@@ -22,7 +22,7 @@ dependencies {
   implementation(project(":core:common"))
 
   implementation(libs.hilt.android)
-  kapt(libs.hilt.compiler)
+  ksp(libs.hilt.compiler)
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.retrofit.core)
   implementation(libs.retrofit.kotlinx)
@@ -31,7 +31,7 @@ dependencies {
   implementation(libs.room.runtime)
   implementation(libs.room.ktx)
   implementation(libs.kotlinx.serialization.json)
-  kapt(libs.room.compiler)
+  ksp(libs.room.compiler)
 
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
