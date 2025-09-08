@@ -1,5 +1,6 @@
 package com.example.feature.settings.api
 
+import com.example.core.common.presenter.ParamInit
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 
@@ -13,7 +14,7 @@ data class SettingsState(
     val learningLanguage: String = supportedLanguages[1]
 )
 
-interface SettingsPresenter {
+interface SettingsPresenter: ParamInit<Unit> {
     val state: StateFlow<SettingsState>
     fun onNativeSelected(language: String)
     fun onLearningSelected(language: String)

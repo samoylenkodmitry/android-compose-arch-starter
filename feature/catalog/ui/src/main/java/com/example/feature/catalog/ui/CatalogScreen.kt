@@ -52,6 +52,7 @@ private class FakeCatalogPresenter : CatalogPresenter {
   override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + CatalogItem(_s.value.items.size+1,"New","Sum")) }
   override fun onItemClick(id: Int) {}
   override fun onSettingsClick() {}
+  override fun initOnce(params: Unit) {}
 }
 
 @Preview(showBackground = true)

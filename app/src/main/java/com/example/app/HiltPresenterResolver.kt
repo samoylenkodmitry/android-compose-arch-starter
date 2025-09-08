@@ -1,26 +1,24 @@
 package com.example.app
 
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.core.common.presenter.PresenterKey
+import com.example.core.common.presenter.ParamInit
+import com.example.core.common.presenter.PresenterProvider
 import com.example.core.common.presenter.PresenterResolver
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.reflect.KClass
 
 @Singleton
 class HiltPresenterResolver @Inject constructor(
-  private val map: Map<Class<*>, @JvmSuppressWildcards Class<out ViewModel>>
+    private val presenterProviders: Map<Class<*>, @JvmSuppressWildcards PresenterProvider<*>>
 ) : PresenterResolver {
 
   @Composable
-  override fun <T : Any> resolve(klass: kotlin.reflect.KClass<T>, key: PresenterKey): T {
-    val owner = checkNotNull(LocalViewModelStoreOwner.current) {
-      "No ViewModelStoreOwner in composition"
-    }
-    val vmClass = map[klass.java] ?: error("No binding for presenter ${klass.simpleName}")
+  override fun <T : ParamInit<*>> resolve(klass: KClass<T>, key: String?): T {
+    val provider = presenterProviders[klass.java]
+        ?: error("No presenter binding for ${klass.simpleName}, map: $presenterProviders")
+    
     @Suppress("UNCHECKED_CAST")
-    return viewModel(modelClass = vmClass, viewModelStoreOwner = owner, key = key) as T
+    return provider.provide(key) as T
   }
 }

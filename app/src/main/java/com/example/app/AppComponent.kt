@@ -5,7 +5,6 @@ import com.example.core.common.app.AppScope
 import dagger.BindsInstance
 import dagger.hilt.DefineComponent
 import dagger.hilt.components.SingletonComponent
-import com.example.app.InternalApp
 
 @AppScope
 @DefineComponent(parent = SingletonComponent::class)

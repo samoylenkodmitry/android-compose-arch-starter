@@ -7,10 +7,8 @@ import kotlin.reflect.KClass
 
 interface ParamInit<P> { fun initOnce(params: P) }
 
-typealias PresenterKey = String?
-
 interface PresenterResolver {
-  @Composable fun <T : Any> resolve(klass: KClass<T>, key: PresenterKey?): T
+  @Composable fun <T : ParamInit<*>> resolve(klass: KClass<T>, key: String??): T
 }
 
 val LocalPresenterResolver = staticCompositionLocalOf<PresenterResolver> {
@@ -19,8 +17,8 @@ val LocalPresenterResolver = staticCompositionLocalOf<PresenterResolver> {
 
 /** Resolve presenter and auto-init params via ParamInit if present. */
 @Composable
-inline fun <reified P: Any, Params> rememberPresenter(
-  key: PresenterKey = null,
+inline fun <reified P: ParamInit<Params>, Params> rememberPresenter(
+  key: String? = null,
   params: Params? = null
 ): P {
   val p = LocalPresenterResolver.current.resolve(P::class, key)

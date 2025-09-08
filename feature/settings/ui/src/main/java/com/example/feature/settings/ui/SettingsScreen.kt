@@ -72,6 +72,7 @@ private class FakeSettingsPresenter : SettingsPresenter {
     override fun onLearningSelected(language: String) {
         _state.value = _state.value.copy(learningLanguage = language)
     }
+    override fun initOnce(params: Unit) {}
 }
 
 @androidx.compose.ui.tooling.preview.Preview(showBackground = true)

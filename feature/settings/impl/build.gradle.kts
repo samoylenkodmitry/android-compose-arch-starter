@@ -3,6 +3,7 @@ plugins {
   id("org.jetbrains.kotlin.android")
   alias(libs.plugins.hilt)
   id("com.google.devtools.ksp")
+  id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -22,6 +23,7 @@ dependencies {
 
   implementation(libs.hilt.android)
   ksp(libs.hilt.compiler)
+  implementation(libs.hilt.nav.compose)
   implementation(libs.lifecycle.viewmodel.compose)
 
   testImplementation(libs.junit)

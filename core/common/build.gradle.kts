@@ -6,6 +6,7 @@ plugins {
 dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.compose.runtime)
+  implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.javax.inject)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)

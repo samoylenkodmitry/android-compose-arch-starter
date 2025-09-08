@@ -4,6 +4,7 @@ plugins {
   alias(libs.plugins.hilt)
   id("com.google.devtools.ksp")
   alias(libs.plugins.kotlin.serialization)
+  id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -15,6 +16,7 @@ android {
     targetCompatibility = JavaVersion.VERSION_21
   }
   kotlinOptions { jvmTarget = "21" }
+  buildFeatures { compose = true }
 }
 
 dependencies {
@@ -23,6 +25,7 @@ dependencies {
 
   implementation(libs.hilt.android)
   ksp(libs.hilt.compiler)
+  implementation(libs.hilt.nav.compose)
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.retrofit.core)
   implementation(libs.retrofit.kotlinx)

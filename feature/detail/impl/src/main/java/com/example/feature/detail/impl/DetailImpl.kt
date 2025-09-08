@@ -5,16 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.feature.catalog.impl.data.ArticleRepo
 import com.example.feature.detail.api.DetailPresenter
 import com.example.feature.detail.api.DetailState
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.components.SingletonComponent
-import dagger.multibindings.ClassKey
-import dagger.multibindings.IntoMap
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
@@ -23,6 +18,7 @@ class DetailViewModel @Inject constructor(
   private val _state = MutableStateFlow(DetailState())
   override val state: StateFlow<DetailState> = _state
   private var initialized = false
+  
   override fun initOnce(params: Int) {
     if (initialized) return
     initialized = true
@@ -39,11 +35,4 @@ class DetailViewModel @Inject constructor(
       }
     }
   }
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
-object DetailBindings {
-  @dagger.Provides @IntoMap @ClassKey(DetailPresenter::class)
-  fun bindDetailPresenter(): Class<out ViewModel> = DetailViewModel::class.java
 }

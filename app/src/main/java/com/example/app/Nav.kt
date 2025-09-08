@@ -2,10 +2,17 @@ package com.example.app
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -26,39 +33,51 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-  @Inject lateinit var resolver: HiltPresenterResolver
-  @Inject lateinit var appManager: AppScopeManager
+    @Inject
+    lateinit var resolver: HiltPresenterResolver
 
-  override fun onCreate(savedInstanceState: android.os.Bundle?) {
-    super.onCreate(savedInstanceState)
-    setContent {
-      AppTheme {
-        val nav = rememberNavController()
-        val app = remember(nav) {
-          val actions = NavigationActions(nav)
-          App(actions).also { appManager.create(it) }
+    @Inject
+    lateinit var appManager: AppScopeManager
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AppTheme {
+                val nav = rememberNavController()
+                val app = remember(nav) {
+                    val actions = NavigationActions(nav)
+                    App(actions).also { appManager.create(it) }
+                }
+                DisposableEffect(app) {
+                    onDispose { appManager.clear() }
+                }
+                CompositionLocalProvider(
+                    LocalPresenterResolver provides resolver
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .imePadding()
+                            .navigationBarsPadding()
+                            .systemBarsPadding()
+                            .safeContentPadding()
+                            .fillMaxSize()
+                    ) {
+                        AppNavHost(nav)
+                    }
+                }
+            }
         }
-        DisposableEffect(Unit) {
-          onDispose { appManager.clear() }
-        }
-        CompositionLocalProvider(
-          LocalPresenterResolver provides resolver
-        ) {
-          AppNavHost(nav)
-        }
-      }
     }
-  }
 }
 
 @Composable
 fun AppNavHost(nav: NavHostController) {
-  NavHost(nav, startDestination = Catalog) {
-    composable<Catalog> { CatalogScreen() }
-    composable<Detail> {
-      val args = it.toRoute<Detail>()
-      DetailScreen(args.id)
+    NavHost(nav, startDestination = Catalog) {
+        composable<Catalog> { CatalogScreen() }
+        composable<Detail> {
+            val args = it.toRoute<Detail>()
+            DetailScreen(args.id)
+        }
+        composable<Settings> { SettingsScreen() }
     }
-    composable<Settings> { SettingsScreen() }
-  }
 }

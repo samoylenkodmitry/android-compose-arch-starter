@@ -5,15 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.feature.settings.api.SettingsPresenter
 import com.example.feature.settings.api.SettingsState
 import com.example.feature.settings.impl.data.SettingsRepository
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.components.SingletonComponent
-import dagger.multibindings.ClassKey
-import dagger.multibindings.IntoMap
-import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -28,13 +23,7 @@ class SettingsViewModel @Inject constructor(
     override fun onLearningSelected(language: String) {
         viewModelScope.launch { repo.updateLearning(language) }
     }
-}
 
-@Module
-@InstallIn(SingletonComponent::class)
-object SettingsBindings {
-    @dagger.Provides
-    @IntoMap
-    @ClassKey(SettingsPresenter::class)
-    fun bindSettingsPresenter(): Class<out ViewModel> = SettingsViewModel::class.java
+    override fun initOnce(params: Unit) {
+    }
 }
