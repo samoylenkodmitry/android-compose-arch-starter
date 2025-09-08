@@ -31,6 +31,9 @@ The `core:common` module provides `PresenterResolver` and helpers such as `remem
 
 This structure allows UI modules to remain free of Hilt while still obtaining their presenters through the shared `PresenterResolver`, keeping feature APIs clean and implementations encapsulated.
 
+## Network layer
+Feature implementation modules own their network and persistence code. Retrofit and OkHttp service interfaces (e.g., `WikipediaService`, `SummarizerService`, `TranslatorService`, and `DictionaryService`) live beside Room entities and DAOs. Hilt modules provide these services and compose them into repositories, such as `ArticleRepository`. These repositories expose `Flow`-based APIs to the rest of the app. This keeps networking concerns isolated within the `impl` layer.
+
 ## Adding a feature
 1. Create three modules under `feature/<name>/` (`api`, `ui`, `impl`) and include them in `settings.gradle.kts`.
 2. In `feature/<name>/api`, declare the route and presenter contract:
