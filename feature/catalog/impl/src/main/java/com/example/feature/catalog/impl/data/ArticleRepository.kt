@@ -36,13 +36,24 @@ class ArticleRepository @Inject constructor(
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
 
   override suspend fun refresh() {
-    val summary = wiki.randomSummary()
+    val summary = runCatching { wiki.randomSummary() }.getOrElse { return }
+
     val prompt = "Summarize this in 3 bullets:\n\n${summary.extract}"
-    val summaryText = retry { summarizer.summarize(prompt) }
+    val summaryText = runCatching { retry { summarizer.summarize(prompt) } }
+      .getOrElse { return }
+      .takeIf { it.isNotBlank() } ?: return
+
     val words = summary.extract.split("\\W+".toRegex()).filter { it.length > 3 }
     val original = words.randomOrNull() ?: return
-    val translation = translator.translate(original, "en|sr").responseData.translatedText
-    val ipa = runCatching { dictionary.lookup(original).firstOrNull()?.phonetics?.firstOrNull()?.text }.getOrNull()
+
+    val translation = runCatching {
+      translator.translate(original, "en|sr").responseData.translatedText
+    }.getOrElse { return }.takeIf { it.isNotBlank() } ?: return
+
+    val ipa = runCatching {
+      dictionary.lookup(original).firstOrNull()?.phonetics?.firstOrNull()?.text
+    }.getOrNull()
+
     val replaced = summary.extract.replaceFirst(original, "$translation ($original)")
     val entity = ArticleEntity(
       id = summary.pageid,
