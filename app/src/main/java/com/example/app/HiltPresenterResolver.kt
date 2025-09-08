@@ -10,7 +10,7 @@ import kotlin.reflect.KClass
 
 @Singleton
 class HiltPresenterResolver @Inject constructor(
-    private val presenterProviders: Map<Class<*>, @JvmSuppressWildcards PresenterProvider<*>>
+    private val presenterProviders: Map<Class<out ParamInit<*>>, @JvmSuppressWildcards PresenterProvider<*>>
 ) : PresenterResolver {
 
   @Composable
