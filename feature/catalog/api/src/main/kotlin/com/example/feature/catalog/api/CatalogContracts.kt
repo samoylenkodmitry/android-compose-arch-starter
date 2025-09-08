@@ -15,4 +15,5 @@ interface CatalogPresenter {
   val state: StateFlow<CatalogState>
   fun onRefresh()
   fun onItemClick(id: Int)
+  fun onSettingsClick()
 }

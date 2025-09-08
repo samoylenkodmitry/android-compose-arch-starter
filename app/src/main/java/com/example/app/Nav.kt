@@ -18,6 +18,8 @@ import com.example.feature.catalog.api.Catalog
 import com.example.feature.catalog.ui.CatalogScreen
 import com.example.feature.detail.api.Detail
 import com.example.feature.detail.ui.DetailScreen
+import com.example.feature.settings.api.Settings
+import com.example.feature.settings.ui.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -57,5 +59,6 @@ fun AppNavHost(nav: NavHostController) {
       val args = it.toRoute<Detail>()
       DetailScreen(args.id)
     }
+    composable<Settings> { SettingsScreen() }
   }
 }
