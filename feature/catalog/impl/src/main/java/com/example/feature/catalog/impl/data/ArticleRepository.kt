@@ -1,13 +1,6 @@
 package com.example.feature.catalog.impl.data
 
-import android.content.Context
 import androidx.room.Room
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Singleton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
@@ -17,7 +10,10 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
-import javax.inject.Inject
+import org.koin.android.ext.koin.androidContext
+import org.koin.androidx.viewmodel.dsl.viewModel
+import org.koin.dsl.module
+import com.example.feature.catalog.impl.CatalogViewModel
 
 interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
@@ -25,8 +21,7 @@ interface ArticleRepo {
   suspend fun article(id: Int): ArticleEntity?
 }
 
-@Singleton
-class ArticleRepository @Inject constructor(
+class ArticleRepository(
   private val wiki: WikipediaService,
   private val summarizer: SummarizerService,
   private val translator: TranslatorService,
@@ -78,76 +73,53 @@ class ArticleRepository @Inject constructor(
   }
 }
 
-@Module
-@InstallIn(SingletonComponent::class)
-object ArticleDataModule {
-  private val json = Json { ignoreUnknownKeys = true }
+private val json = Json { ignoreUnknownKeys = true }
 
-  @Provides
-  @Singleton
-  fun provideOkHttp(): OkHttpClient =
+val catalogModule = module {
+  single {
     OkHttpClient.Builder()
       .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
       .addInterceptor { chain ->
         chain.proceed(chain.request().newBuilder().header("User-Agent", "android-compose-arch-starter").build())
       }
       .build()
-
-  @Provides
-  @Singleton
-  fun provideWikipediaService(client: OkHttpClient): WikipediaService =
+  }
+  single {
     Retrofit.Builder()
       .baseUrl("https://en.wikipedia.org/api/rest_v1/")
-      .client(client)
+      .client(get())
       .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
       .build()
       .create(WikipediaService::class.java)
-
-  @Provides
-  @Singleton
-  fun provideSummarizerService(client: OkHttpClient): SummarizerService =
+  }
+  single {
     Retrofit.Builder()
       .baseUrl("https://text.pollinations.ai/")
-      .client(client)
+      .client(get())
       .addConverterFactory(ScalarsConverterFactory.create())
       .build()
       .create(SummarizerService::class.java)
-
-  @Provides
-  @Singleton
-  fun provideTranslatorService(client: OkHttpClient): TranslatorService =
+  }
+  single {
     Retrofit.Builder()
       .baseUrl("https://api.mymemory.translated.net/")
-      .client(client)
+      .client(get())
       .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
       .build()
       .create(TranslatorService::class.java)
-
-  @Provides
-  @Singleton
-  fun provideDictionaryService(client: OkHttpClient): DictionaryService =
+  }
+  single {
     Retrofit.Builder()
       .baseUrl("https://api.dictionaryapi.dev/")
-      .client(client)
+      .client(get())
       .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
       .build()
       .create(DictionaryService::class.java)
-
-  @Provides
-  @Singleton
-  fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-    Room.databaseBuilder(context, AppDatabase::class.java, "articles.db").build()
-
-  @Provides
-  fun provideArticleDao(db: AppDatabase): ArticleDao = db.articleDao()
-
-  @Provides
-  @Singleton
-  fun provideArticleRepo(
-    wiki: WikipediaService,
-    summarizer: SummarizerService,
-    translator: TranslatorService,
-    dictionary: DictionaryService,
-    dao: ArticleDao
-  ): ArticleRepo = ArticleRepository(wiki, summarizer, translator, dictionary, dao)
+  }
+  single {
+    Room.databaseBuilder(androidContext(), AppDatabase::class.java, "articles.db").build()
+  }
+  single { get<AppDatabase>().articleDao() }
+  single<ArticleRepo> { ArticleRepository(get(), get(), get(), get(), get()) }
+  viewModel { CatalogViewModel(get(), get()) }
 }

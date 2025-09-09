@@ -5,14 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.feature.catalog.impl.data.ArticleRepo
 import com.example.feature.detail.api.DetailPresenter
 import com.example.feature.detail.api.DetailState
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
+import org.koin.androidx.viewmodel.dsl.viewModel
 
-@HiltViewModel
-class DetailViewModel @Inject constructor(
+class DetailViewModel(
   private val repo: ArticleRepo
 ) : ViewModel(), DetailPresenter {
   private val _state = MutableStateFlow(DetailState())
@@ -35,4 +33,8 @@ class DetailViewModel @Inject constructor(
       }
     }
   }
+}
+
+val detailModule = org.koin.dsl.module {
+  viewModel { DetailViewModel(get()) }
 }

@@ -5,13 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.feature.settings.api.SettingsPresenter
 import com.example.feature.settings.api.SettingsState
 import com.example.feature.settings.impl.data.SettingsRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
+import org.koin.androidx.viewmodel.dsl.viewModel
 
-@HiltViewModel
-class SettingsViewModel @Inject constructor(
+class SettingsViewModel(
     private val repo: SettingsRepository
 ) : ViewModel(), SettingsPresenter {
     override val state: StateFlow<SettingsState> = repo.state
@@ -26,4 +24,9 @@ class SettingsViewModel @Inject constructor(
 
     override fun initOnce(params: Unit) {
     }
+}
+
+val settingsModule = org.koin.dsl.module {
+    single { SettingsRepository() }
+    viewModel { SettingsViewModel(get()) }
 }

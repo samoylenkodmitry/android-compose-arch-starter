@@ -1,7 +1,6 @@
 plugins {
   alias(libs.plugins.android.lib)
   id("org.jetbrains.kotlin.android")
-  alias(libs.plugins.hilt)
   id("com.google.devtools.ksp")
   alias(libs.plugins.kotlin.serialization)
   id("org.jetbrains.kotlin.plugin.compose")
@@ -23,9 +22,8 @@ dependencies {
   implementation(project(":feature:catalog:api"))
   implementation(project(":core:common"))
 
-  implementation(libs.hilt.android)
-  ksp(libs.hilt.compiler)
-  implementation(libs.hilt.nav.compose)
+  implementation(libs.koin.android)
+  implementation(libs.koin.androidx.compose)
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.retrofit.core)
   implementation(libs.retrofit.kotlinx)

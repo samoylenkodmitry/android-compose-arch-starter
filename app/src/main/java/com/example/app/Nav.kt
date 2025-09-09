@@ -27,17 +27,10 @@ import com.example.feature.detail.api.Detail
 import com.example.feature.detail.ui.DetailScreen
 import com.example.feature.settings.api.Settings
 import com.example.feature.settings.ui.SettingsScreen
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import org.koin.core.context.GlobalContext
+import org.koin.dsl.module
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
-    @Inject
-    lateinit var resolver: HiltPresenterResolver
-
-    @Inject
-    lateinit var appManager: AppScopeManager
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,10 +39,14 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                 val app = remember(nav) {
                     val actions = NavigationActions(nav)
-                    App(actions).also { appManager.create(it) }
+                    App(actions)
                 }
+                val resolver = remember { KoinPresenterResolver() }
                 DisposableEffect(app) {
-                    onDispose { appManager.clear() }
+                    val koin = GlobalContext.get()
+                    val mod = module { single { app } }
+                    koin.loadModules(listOf(mod), allowOverride = true)
+                    onDispose { koin.unloadModules(listOf(mod)) }
                 }
                 CompositionLocalProvider(
                     LocalPresenterResolver provides resolver

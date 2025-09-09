@@ -1,9 +1,7 @@
 plugins {
   alias(libs.plugins.android.app)
   id("org.jetbrains.kotlin.android")
-  alias(libs.plugins.hilt)
   id("org.jetbrains.kotlin.plugin.compose")
-  id("com.google.devtools.ksp")
 }
 
 android {
@@ -50,10 +48,8 @@ dependencies {
   implementation(libs.lifecycle.runtime.compose)
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.navigation.compose)
-
-  implementation(libs.hilt.android)
-  ksp(libs.hilt.compiler)
-  implementation(libs.hilt.nav.compose)
+  implementation(libs.koin.android)
+  implementation(libs.koin.androidx.compose)
 
   androidTestImplementation(libs.compose.ui.test.junit4)
   debugImplementation(libs.compose.ui.test.manifest)
