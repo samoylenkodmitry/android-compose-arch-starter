@@ -34,6 +34,14 @@ This structure allows UI modules to remain free of Hilt while still obtaining th
 ## Network layer
 Feature implementation modules own their network and persistence code. Retrofit and OkHttp service interfaces (e.g., `WikipediaService`, `SummarizerService`, `TranslatorService`, and `DictionaryService`) live beside Room entities and DAOs. Hilt modules provide these services and compose them into repositories, such as `ArticleRepository`. These repositories expose `Flow`-based APIs to the rest of the app. This keeps networking concerns isolated within the `impl` layer.
 
+## Current Features
+
+The starter ships with a few sample features wired through the architecture:
+
+- **Catalog** – fetches random Wikipedia articles, summarizes them and lists translated vocabulary.
+- **Detail** – shows the full article content along with translation details and pronunciation when available.
+- **Settings** – allows choosing native and learning languages that drive translation.
+
 ## Adding a feature
 1. Create three modules under `feature/<name>/` (`api`, `ui`, `impl`) and include them in `settings.gradle.kts`.
 2. In `feature/<name>/api`, declare the route and presenter contract:
