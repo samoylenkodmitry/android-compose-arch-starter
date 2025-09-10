@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.common.presenter.PresenterProvider
 import com.example.feature.catalog.api.CatalogPresenter
+import com.example.feature.catalog.api.CatalogItemPresenter
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,6 +23,18 @@ object CatalogPresenterBindings {
             @Composable
             override fun provide(key: String?): CatalogPresenter {
                 return hiltViewModel<CatalogViewModel>(key = key)
+            }
+        }
+    }
+
+    @Provides
+    @IntoMap
+    @ClassKey(CatalogItemPresenter::class)
+    fun provideCatalogItemPresenterProvider(): PresenterProvider<*> {
+        return object : PresenterProvider<CatalogItemPresenter> {
+            @Composable
+            override fun provide(key: String?): CatalogItemPresenter {
+                return hiltViewModel<CatalogItemViewModel>(key = key)
             }
         }
     }
