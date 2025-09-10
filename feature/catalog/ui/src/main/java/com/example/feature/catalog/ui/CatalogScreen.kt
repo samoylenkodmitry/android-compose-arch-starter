@@ -3,6 +3,7 @@ package com.example.feature.catalog.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -16,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.common.presenter.rememberPresenter
 import com.example.core.designsystem.AppTheme
+import com.example.core.designsystem.LiquidGlassBox
 import com.example.feature.catalog.api.CatalogPresenter
 import com.example.feature.catalog.api.CatalogState
 import com.example.feature.catalog.api.CatalogItem
@@ -36,9 +38,15 @@ fun CatalogScreen(
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     state.items.forEach { item ->
-      Column(Modifier.clickable { p.onItemClick(item.id) }) {
-        Text(item.title)
-        Text(item.summary, style = MaterialTheme.typography.bodySmall)
+      LiquidGlassBox(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { p.onItemClick(item.id) }
+      ) {
+        Column(Modifier.padding(12.dp)) {
+          Text(item.title)
+          Text(item.summary, style = MaterialTheme.typography.bodySmall)
+        }
       }
       Spacer(Modifier.height(8.dp))
     }
