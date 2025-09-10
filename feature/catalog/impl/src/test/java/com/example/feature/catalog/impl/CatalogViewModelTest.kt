@@ -5,6 +5,7 @@ import com.example.core.common.app.App
 import com.example.core.common.app.NavigationActions
 import com.example.feature.catalog.impl.data.ArticleEntity
 import com.example.feature.catalog.impl.data.ArticleRepo
+import com.example.feature.catalog.impl.CatalogBridge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -28,11 +29,12 @@ class CatalogViewModelTest {
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
-    val vm = CatalogViewModel(repo, App(nav))
+    val bridge = CatalogBridge()
+    val vm = CatalogViewModel(repo, App(nav), bridge)
 
     vm.onRefresh()
     advanceUntilIdle()
 
-    assertEquals(listOf("One", "Two"), vm.state.value.items.map { it.title })
+    assertEquals(listOf(1, 2), vm.state.value.items)
   }
 }
