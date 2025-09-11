@@ -81,7 +81,7 @@ half4 main(float2 coord) {
     half specA = half(clamp(u_highlight * rim, 0.0, 1.0));
     half4 spec = half4(1.0, 1.0, 1.0, specA);
     half4 base = refr;
-    half4 outc = base + spec * spec.a * 0.85h;
+    half4 outc = base + spec * spec.a * 0.85;
     return outc;
 }
 """
