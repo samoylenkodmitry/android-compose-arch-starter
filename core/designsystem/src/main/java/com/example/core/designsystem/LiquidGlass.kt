@@ -14,10 +14,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -136,7 +138,9 @@ fun LiquidGlassBox(
                 .onSizeChanged { sizePx = Size(it.width.toFloat(), it.height.toFloat()) }
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.Offscreen
-                    renderEffect = RenderEffect.createRuntimeShaderEffect(shader, "background")
+                    renderEffect = RenderEffect
+                        .createRuntimeShaderEffect(shader, "background")
+                        .asComposeRenderEffect()
                     clip = false
                 }
         ) {
@@ -154,21 +158,16 @@ fun LiquidGlassBox(
 }
 
 private fun DrawScope.drawFallbackGlass(spec: LiquidGlassSpec) {
-    val rr = androidx.compose.ui.geometry.RoundRect(
-        left = 0f,
-        top = 0f,
-        right = size.width,
-        bottom = size.height,
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(spec.cornerRadius.toPx())
-    )
+    val corner = androidx.compose.ui.geometry.CornerRadius(spec.cornerRadius.toPx())
     drawRoundRect(
         color = Color.White.copy(alpha = 0.06f),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(spec.cornerRadius.toPx())
+        cornerRadius = corner
     )
     drawRoundRect(
         color = Color.White.copy(alpha = 0.10f),
-        topLeft = rr.topLeft,
-        size = rr.size
+        topLeft = Offset.Zero,
+        size = size,
+        cornerRadius = corner
     )
 }
 

@@ -1,24 +1,22 @@
 plugins {
-  alias(libs.plugins.kotlin)
+  alias(libs.plugins.android.lib)
+  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.serialization)
+}
+
+android {
+  namespace = "com.example.feature.catalog.api"
+  compileSdk = 35
+  defaultConfig { minSdk = 24 }
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+  }
+  kotlinOptions { jvmTarget = "21" }
 }
 
 dependencies {
   implementation(project(":core:common"))
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.serialization.json)
-}
-
-kotlin {
-  compilerOptions {
-    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
-  }
-}
-
-java {
-  toolchain.languageVersion.set(JavaLanguageVersion.of(21))
-}
-
-tasks.withType<JavaCompile>().configureEach {
-  options.release.set(21)
 }
