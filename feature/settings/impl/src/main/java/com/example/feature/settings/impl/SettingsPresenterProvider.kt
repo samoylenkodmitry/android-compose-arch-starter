@@ -1,8 +1,8 @@
 package com.example.feature.settings.impl
 
 import androidx.compose.runtime.Composable
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.common.presenter.PresenterProvider
+import com.example.core.common.viewmodel.scopedViewModel
 import com.example.feature.settings.api.SettingsPresenter
 import dagger.Module
 import dagger.Provides
@@ -22,7 +22,7 @@ object SettingsPresenterBindings {
         return object : PresenterProvider<SettingsPresenter> {
             @Composable
             override fun provide(key: String?): SettingsPresenter {
-                return hiltViewModel<SettingsViewModel>(key = key)
+                return scopedViewModel<SettingsViewModel>(key)
             }
         }
     }

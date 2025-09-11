@@ -2,6 +2,37 @@
 
 This project demonstrates a modular, feature-first architecture for Jetpack Compose apps. It splits functionality into coarse **modules**, separates concerns by **layers**, and wires everything together through **Hilt**.
 
+## Custom ViewModelScope
+
+This project uses a custom ViewModelScope implementation instead of the standard `viewModelScope`. This provides:
+
+- **Single VM Factory Map**: Uses Dagger multibindings to eliminate duplicate ViewModel lists
+- **Nested Scopes**: `ScreenScope(nested = true)` creates independent child scopes
+- **Scoped Dependencies**: ViewModels can inject screen-scoped dependencies like `ScreenBus`
+- **Constructor DI**: ViewModels use `@AssistedInject` for type-safe dependency injection
+
+### Usage
+
+```kotlin
+// Wrap screens with ScreenScope
+@Composable
+fun SomeScreen() {
+  ScreenScope {
+    val presenter: CatalogPresenter = rememberPresenter<CatalogPresenter, Unit>()
+    // ViewModels share ScreenBus instance within this scope
+  }
+}
+
+// Create nested independent scopes
+ScreenScope {
+  ParentContent()
+  
+  ScreenScope(nested = true) {
+    ChildContent() // Gets fresh ScreenBus instance
+  }
+}
+```
+
 ## Module structure
 - **app** – Application module hosting the navigation graph and providing Hilt bindings for presenters and the app scope.
 - **core**
@@ -26,8 +57,9 @@ The `core:common` module provides `PresenterResolver` and helpers such as `remem
 ## Hilt structure
 - `@HiltAndroidApp` `MyApp` is the entry point for dependency injection.
 - A custom `AppComponent` and `AppScopeManager` create an application-scoped component that holds an `App` object with navigation actions.
-- `HiltPresenterResolver` is injected into the `MainActivity` and uses multibindings to map presenter interfaces to their `@HiltViewModel` implementations.
-- Each feature implementation module contributes to that map and provides its own repository bindings (e.g. `CatalogBindings`, `DetailBindings`).
+- Custom `ScreenComponent` and `SubscreenComponent` provide screen-level scoping with nested scope support.
+- `HiltPresenterResolver` is injected into the `MainActivity` and uses multibindings to map presenter interfaces to their implementations.
+- Each feature implementation module contributes ViewModels to the factory map via `@AssistedFactory` and `@VmKey` annotations.
 
 This structure allows UI modules to remain free of Hilt while still obtaining their presenters through the shared `PresenterResolver`, keeping feature APIs clean and implementations encapsulated.
 
@@ -49,7 +81,7 @@ The starter ships with a few sample features wired through the architecture:
 @Serializable data object Foo
 
 data class FooState(val text: String = "")
-interface FooPresenter {
+interface FooPresenter : ParamInit<Unit> {
   val state: StateFlow<FooState>
   fun onAction()
 }
@@ -65,17 +97,36 @@ fun FooScreen(p: FooPresenter? = null) {
 ```
 4. In `feature/<name>/impl`, provide the presenter implementation and Hilt bindings:
 ```kotlin
-@HiltViewModel
-class FooViewModel @Inject constructor(...) : ViewModel(), FooPresenter { /*...*/ }
+class FooViewModel @AssistedInject constructor(
+  private val screenBus: ScreenBus,
+  @Assisted private val handle: SavedStateHandle
+) : ViewModel(), FooPresenter {
+  @AssistedFactory
+  interface Factory : AssistedVmFactory<FooViewModel>
+}
+
+@Module
+@InstallIn(ScreenComponent::class)
+abstract class FooVmBindingModule {
+  @Binds @IntoMap @VmKey(FooViewModel::class)
+  abstract fun fooFactory(f: FooViewModel.Factory): AssistedVmFactory<out ViewModel>
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
-object FooBindings {
+object FooPresenterBindings {
   @Provides @IntoMap @ClassKey(FooPresenter::class)
-  fun bindFooPresenter(): Class<out ViewModel> = FooViewModel::class.java
+  fun provideFooPresenterProvider(): PresenterProvider<*> {
+    return object : PresenterProvider<FooPresenter> {
+      @Composable
+      override fun provide(key: String?): FooPresenter {
+        return magicViewModel<FooViewModel>()
+      }
+    }
+  }
 }
 ```
-5. Wire the feature into navigation by updating `NavigationActions` if needed.
+5. Wire the feature into navigation by updating `NavigationActions` and wrapping the screen with `ScreenScope { }` if needed.
 
 ## Release
 To publish a release APK through GitHub Actions, create and push an annotated tag:

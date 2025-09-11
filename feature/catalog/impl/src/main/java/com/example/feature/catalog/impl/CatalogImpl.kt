@@ -1,48 +1,103 @@
 package com.example.feature.catalog.impl
 
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.common.app.App
+import com.example.core.common.presenter.PresenterProvider
+import com.example.core.common.scope.ScreenBus
+import com.example.core.common.scope.ScreenComponent
+import com.example.core.common.viewmodel.AssistedVmFactory
+import com.example.core.common.viewmodel.VmKey
+import com.example.core.common.viewmodel.scopedViewModel
 import com.example.feature.catalog.api.CatalogPresenter
 import com.example.feature.catalog.api.CatalogState
 import com.example.feature.catalog.impl.data.ArticleRepo
-import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.Binds
+import dagger.Module
+import dagger.Provides
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.ClassKey
+import dagger.multibindings.IntoMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 
-@HiltViewModel
-class CatalogViewModel @Inject constructor(
-  private val repo: ArticleRepo,
-  private val app: App,
-  private val bridge: CatalogBridge,
+class CatalogViewModel @AssistedInject constructor(
+    private val repo: ArticleRepo,
+    private val app: App,
+    private val bridge: CatalogBridge,
+    private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
+    @Assisted private val handle: SavedStateHandle
 ) : ViewModel(), CatalogPresenter {
-  private val _state = MutableStateFlow(CatalogState())
-  override val state: StateFlow<CatalogState> = _state
+    private val _state = MutableStateFlow(CatalogState())
+    override val state: StateFlow<CatalogState> = _state
 
-  init {
-    bridge.setDelegate(this)
-    viewModelScope.launch {
-      repo.articles.collect { list ->
-        _state.value = CatalogState(list.map { it.id })
-      }
+    val busText = screenBus.text.stateIn(viewModelScope, SharingStarted.Eagerly, screenBus.text.value)
+
+    init {
+        println("CatalogViewModel created vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
+        bridge.setDelegate(this)
+        viewModelScope.launch {
+            repo.articles.collect { list ->
+                _state.value = CatalogState(list.map { it.id })
+            }
+        }
     }
-  }
+    override fun onCleared() {
+        super.onCleared()
+        println("CatalogViewModel clear vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
+    }
 
-  override fun onRefresh() {
-    viewModelScope.launch { repo.refresh() }
-  }
+    override fun onRefresh() {
+        viewModelScope.launch { repo.refresh() }
+        screenBus.send("Catalog refreshed at ${System.currentTimeMillis()}")
+    }
 
-  override fun onSettingsClick() {
-    app.navigation.openSettings()
-  }
+    override fun onSettingsClick() {
+        app.navigation.openSettings()
+    }
 
-  override fun onItemClick(id: Int) {
-    app.navigation.openDetail(id)
-  }
+    override fun onItemClick(id: Int) {
+        app.navigation.openDetail(id)
+    }
 
-  override fun initOnce(params: Unit) {
-  }
+    override fun initOnce(params: Unit) {
+    }
+
+    @AssistedFactory
+    interface Factory : AssistedVmFactory<CatalogViewModel>
 }
 
+@Module
+@InstallIn(SingletonComponent::class)
+object CatalogBindings {
+    @Provides
+    @IntoMap
+    @ClassKey(CatalogPresenter::class)
+    fun provideCatalogProvider(): PresenterProvider<*> {
+        return object : PresenterProvider<CatalogPresenter> {
+            @Composable
+            override fun provide(key: String?): CatalogPresenter {
+                return scopedViewModel<CatalogViewModel>(key)
+            }
+        }
+    }
+}
+
+@Module
+@InstallIn(ScreenComponent::class)
+abstract class CatalogBindingModule {
+
+    @Binds
+    @IntoMap
+    @VmKey(CatalogViewModel::class)
+    abstract fun catalogFactory(f: CatalogViewModel.Factory): AssistedVmFactory<out ViewModel>
+}

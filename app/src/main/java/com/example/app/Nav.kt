@@ -20,6 +20,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.core.common.app.App
 import com.example.core.common.presenter.LocalPresenterResolver
+import com.example.core.common.scope.LocalScreenBuilder
+import com.example.core.common.scope.ScreenComponent
+import com.example.core.common.scope.ScreenScope
 import com.example.core.designsystem.AppTheme
 import com.example.feature.catalog.api.Catalog
 import com.example.feature.catalog.ui.CatalogScreen
@@ -39,6 +42,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var appManager: AppScopeManager
 
+    @Inject
+    lateinit var screenBuilder: ScreenComponent.Builder
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -52,7 +58,8 @@ class MainActivity : ComponentActivity() {
                     onDispose { appManager.clear() }
                 }
                 CompositionLocalProvider(
-                    LocalPresenterResolver provides resolver
+                    LocalPresenterResolver provides resolver,
+                    LocalScreenBuilder provides screenBuilder
                 ) {
                     Box(
                         modifier = Modifier
@@ -73,11 +80,21 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavHost(nav: NavHostController) {
     NavHost(nav, startDestination = Catalog) {
-        composable<Catalog> { CatalogScreen() }
+        composable<Catalog> { 
+            ScreenScope {
+                CatalogScreen() 
+            }
+        }
         composable<Detail> {
             val args = it.toRoute<Detail>()
-            DetailScreen(args.id)
+            ScreenScope {
+                DetailScreen(args.id)
+            }
         }
-        composable<Settings> { SettingsScreen() }
+        composable<Settings> { 
+            ScreenScope {
+                SettingsScreen() 
+            }
+        }
     }
 }

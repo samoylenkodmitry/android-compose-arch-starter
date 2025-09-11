@@ -1,11 +1,12 @@
 package com.example.feature.catalog.impl
 
+import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import com.example.core.common.app.App
 import com.example.core.common.app.NavigationActions
+import com.example.core.common.scope.ScreenBus
 import com.example.feature.catalog.impl.data.ArticleEntity
 import com.example.feature.catalog.impl.data.ArticleRepo
-import com.example.feature.catalog.impl.CatalogBridge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -30,7 +31,9 @@ class CatalogViewModelTest {
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
     val bridge = CatalogBridge()
-    val vm = CatalogViewModel(repo, App(nav), bridge)
+    val screenBus = ScreenBus()
+    val handle = SavedStateHandle()
+    val vm = CatalogViewModel(repo, App(nav), bridge, screenBus, handle)
 
     vm.onRefresh()
     advanceUntilIdle()
