@@ -11,6 +11,7 @@ import com.archstarter.feature.catalog.impl.data.TranslationResponse
 import com.archstarter.feature.catalog.impl.data.TranslatorService
 import com.archstarter.feature.catalog.impl.data.WikipediaService
 import com.archstarter.feature.catalog.impl.data.WikipediaSummary
+import com.archstarter.feature.settings.impl.data.SettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +56,7 @@ class ArticleRepositoryTest {
         }
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = SettingsRepository(),
       dao = dao
     )
 
@@ -73,6 +75,7 @@ class ArticleRepositoryTest {
         override suspend fun translate(word: String, langPair: String) = TranslationResponse(TranslationData(""))
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = SettingsRepository(),
       dao = dao
     )
 

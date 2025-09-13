@@ -18,6 +18,8 @@ import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import javax.inject.Inject
+import com.archstarter.feature.settings.api.languageCodes
+import com.archstarter.feature.settings.impl.data.SettingsRepository
 
 interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
@@ -31,6 +33,7 @@ class ArticleRepository @Inject constructor(
   private val summarizer: SummarizerService,
   private val translator: TranslatorService,
   private val dictionary: DictionaryService,
+  private val settings: SettingsRepository,
   private val dao: ArticleDao
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
@@ -46,8 +49,10 @@ class ArticleRepository @Inject constructor(
     val words = summary.extract.split("\\W+".toRegex()).filter { it.length > 3 }
     val original = words.randomOrNull() ?: return
 
+    val state = settings.state.value
+    val langPair = "${languageCodes[state.learningLanguage]}|${languageCodes[state.nativeLanguage]}"
     val translation = runCatching {
-      translator.translate(original, "en|sr").responseData.translatedText
+      translator.translate(original, langPair).responseData.translatedText
     }.getOrElse { return }.takeIf { it.isNotBlank() } ?: return
 
     val ipa = runCatching {
@@ -148,6 +153,7 @@ object ArticleDataModule {
     summarizer: SummarizerService,
     translator: TranslatorService,
     dictionary: DictionaryService,
+    settings: SettingsRepository,
     dao: ArticleDao
-  ): ArticleRepo = ArticleRepository(wiki, summarizer, translator, dictionary, dao)
+  ): ArticleRepo = ArticleRepository(wiki, summarizer, translator, dictionary, settings, dao)
 }
