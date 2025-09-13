@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example.feature.detail.ui"
+  namespace = "com.archstarter.feature.detail.ui"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
   buildFeatures { compose = true }

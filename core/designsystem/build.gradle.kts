@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example.core.designsystem"
+  namespace = "com.archstarter.core.designsystem"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
   buildFeatures { compose = true }

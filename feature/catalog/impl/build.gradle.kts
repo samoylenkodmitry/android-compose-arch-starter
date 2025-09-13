@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example.feature.catalog.impl"
+  namespace = "com.archstarter.feature.catalog.impl"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
   compileOptions {

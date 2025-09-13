@@ -7,10 +7,10 @@ plugins {
 }
 
 android {
-  namespace = "com.example.app"
+  namespace = "com.archstarter.app"
   compileSdk = 35
   defaultConfig {
-    applicationId = "com.example.app"
+    applicationId = "com.archstarter.app"
     minSdk = 24
     targetSdk = 35
     versionCode = 1
@@ -25,6 +25,15 @@ android {
     targetCompatibility = JavaVersion.VERSION_21
   }
   kotlinOptions { jvmTarget = "21" }
+
+  signingConfigs {
+    getByName("debug")
+  }
+  buildTypes {
+    getByName("release") {
+      signingConfig = signingConfigs.getByName("debug")
+    }
+  }
 
 }
 
