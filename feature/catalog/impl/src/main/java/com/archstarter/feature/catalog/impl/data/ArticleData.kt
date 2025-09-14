@@ -19,12 +19,13 @@ data class ArticleEntity(
   val sourceUrl: String,
   val originalWord: String,
   val translatedWord: String,
-  val ipa: String?
+  val ipa: String?,
+  val createdAt: Long
 )
 
 @Dao
 interface ArticleDao {
-  @Query("SELECT * FROM articles ORDER BY id DESC")
+  @Query("SELECT * FROM articles ORDER BY createdAt DESC")
   fun getArticles(): Flow<List<ArticleEntity>>
 
   @Query("SELECT * FROM articles WHERE id = :id")
@@ -34,7 +35,7 @@ interface ArticleDao {
   suspend fun insert(article: ArticleEntity)
 }
 
-@Database(entities = [ArticleEntity::class], version = 1)
+@Database(entities = [ArticleEntity::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
   abstract fun articleDao(): ArticleDao
 }
