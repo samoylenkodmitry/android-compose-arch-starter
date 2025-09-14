@@ -50,7 +50,7 @@ class ArticleRepository @Inject constructor(
     val original = words.randomOrNull() ?: return
 
     val state = settings.state.value
-    val langPair = "${languageCodes[state.learningLanguage]}|${languageCodes[state.nativeLanguage]}"
+    val langPair = "${languageCodes[state.nativeLanguage]}|${languageCodes[state.learningLanguage]}"
     val translation = runCatching {
       translator.translate(original, langPair).responseData.translatedText
     }.getOrElse { return }.takeIf { it.isNotBlank() } ?: return
