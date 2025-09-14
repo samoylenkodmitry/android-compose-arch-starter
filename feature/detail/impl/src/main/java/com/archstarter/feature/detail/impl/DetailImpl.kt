@@ -63,6 +63,16 @@ class DetailViewModel @AssistedInject constructor(
         }
     }
 
+    override fun translate(word: String) {
+        viewModelScope.launch {
+            val translation = repo.translate(word) ?: return@launch
+            _state.value = _state.value.copy(
+                highlightedWord = word,
+                highlightedTranslation = translation
+            )
+        }
+    }
+
     @AssistedFactory
     interface Factory : AssistedVmFactory<DetailViewModel>
 }

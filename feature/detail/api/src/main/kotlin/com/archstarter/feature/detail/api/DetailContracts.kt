@@ -14,8 +14,11 @@ data class DetailState(
   val originalWord: String = "",
   val translatedWord: String = "",
   val ipa: String? = null,
+  val highlightedWord: String? = null,
+  val highlightedTranslation: String? = null,
 )
 
 interface DetailPresenter : ParamInit<Int> {
   val state: StateFlow<DetailState>
+  fun translate(word: String)
 }
