@@ -50,6 +50,9 @@ class CatalogViewModel @AssistedInject constructor(
                 _state.value = CatalogState(list.map { it.id })
             }
         }
+        viewModelScope.launch {
+            repeat(10) { repo.refresh() }
+        }
     }
     override fun onCleared() {
         super.onCleared()

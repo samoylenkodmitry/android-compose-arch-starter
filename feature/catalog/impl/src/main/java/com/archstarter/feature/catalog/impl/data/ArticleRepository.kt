@@ -68,7 +68,8 @@ class ArticleRepository @Inject constructor(
       sourceUrl = summary.contentUrls.desktop.page,
       originalWord = original,
       translatedWord = translation,
-      ipa = ipa
+      ipa = ipa,
+      createdAt = System.currentTimeMillis()
     )
     dao.insert(entity)
   }

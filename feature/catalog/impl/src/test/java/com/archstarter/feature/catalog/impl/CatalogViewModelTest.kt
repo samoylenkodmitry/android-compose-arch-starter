@@ -26,7 +26,12 @@ class CatalogViewModelTest {
     val data = MutableStateFlow(listOf<ArticleEntity>())
     val repo = object : ArticleRepo {
       override val articles: StateFlow<List<ArticleEntity>> = data
-      override suspend fun refresh() { data.value = listOf(ArticleEntity(1,"One","S","C","u","o","t",null), ArticleEntity(2,"Two","S","C","u","o","t",null)) }
+      override suspend fun refresh() {
+        data.value = listOf(
+          ArticleEntity(1,"One","S","C","u","o","t",null,0L),
+          ArticleEntity(2,"Two","S","C","u","o","t",null,1L)
+        )
+      }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
@@ -39,5 +44,32 @@ class CatalogViewModelTest {
     advanceUntilIdle()
 
     assertEquals(listOf(1, 2), vm.state.value.items)
+  }
+
+  @Test
+  fun initFetchesTenItems() = runTest {
+    var refreshCount = 0
+    val data = MutableStateFlow(listOf<ArticleEntity>())
+    val repo = object : ArticleRepo {
+      override val articles: StateFlow<List<ArticleEntity>> = data
+      override suspend fun refresh() {
+        refreshCount++
+        val id = refreshCount
+        data.value = listOf(
+          ArticleEntity(id, "Title$id", "S", "C", "u", "o", "t", null, id.toLong())
+        ) + data.value
+      }
+      override suspend fun article(id: Int): ArticleEntity? = null
+    }
+    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val bridge = CatalogBridge()
+    val screenBus = ScreenBus()
+    val handle = SavedStateHandle()
+    val vm = CatalogViewModel(repo, App(nav), bridge, screenBus, handle)
+
+    advanceUntilIdle()
+
+    assertEquals(10, refreshCount)
+    assertEquals((10 downTo 1).toList(), vm.state.value.items)
   }
 }
