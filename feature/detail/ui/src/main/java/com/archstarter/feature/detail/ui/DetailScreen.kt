@@ -15,12 +15,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
@@ -31,6 +32,11 @@ import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 @Composable
 fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
@@ -39,62 +45,90 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val density = LocalDensity.current
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
   var currentWord by remember { mutableStateOf("") }
-  var targetRect by remember { mutableStateOf<Rect?>(null) }
-  val animRect = remember { Animatable(Rect.Zero, Rect.VectorConverter) }
+  var targetRect by remember { mutableStateOf<LiquidRect?>(null) }
+  val animLeft = remember { Animatable(0f) }
+  val animTop = remember { Animatable(0f) }
+  val animWidth = remember { Animatable(0f) }
+  val animHeight = remember { Animatable(0f) }
 
   LaunchedEffect(targetRect) {
-    targetRect?.let { animRect.animateTo(it) }
+    targetRect?.let { rect ->
+      coroutineScope {
+        launch { animLeft.animateTo(rect.left) }
+        launch { animTop.animateTo(rect.top) }
+        launch { animWidth.animateTo(rect.width) }
+        launch { animHeight.animateTo(rect.height) }
+      }
+    }
   }
 
   Column(Modifier.padding(16.dp)) {
     Text(state.title, style = MaterialTheme.typography.titleLarge)
     Box {
+      val content = state.content
       Text(
-        text = state.highlightedWord?.let { w ->
-          state.highlightedTranslation?.let { t ->
-            state.content.replaceFirst(w, t)
-          }
-        } ?: state.content,
+        text = content,
         onTextLayout = { layout = it },
-        modifier = Modifier.pointerInput(state.content) {
+        modifier = Modifier.pointerInput(content) {
           awaitPointerEventScope {
             while (true) {
               val event = awaitPointerEvent()
               val pos = event.changes.first().position
               val layoutResult = layout ?: continue
-              val text = state.content
-              val index = layoutResult.getOffsetForPosition(pos).coerceIn(0, text.length)
-              if (index < text.length) {
-                val start = text.take(index).lastIndexOfAny(charArrayOf(' ', '\n')) + 1
-                val end = text.indexOfAny(charArrayOf(' ', '\n'), start).let { if (it == -1) text.length else it }
-                val word = text.substring(start, end)
-                if (word.isNotBlank() && word != currentWord) {
-                  currentWord = word
-                  val startBox = layoutResult.getBoundingBox(start)
-                  val endBox = layoutResult.getBoundingBox(end - 1)
-                  targetRect = Rect(startBox.left, startBox.top, endBox.right, startBox.bottom)
-                  p.translate(word)
+              val index = layoutResult.getOffsetForPosition(pos).coerceIn(0, content.length)
+              if (index < content.length) {
+                val range = layoutResult.getWordBoundary(index)
+                if (range.end > range.start) {
+                  val word = content.substring(range.start, range.end)
+                  val normalized = word.trim { !it.isLetterOrDigit() }
+                  if (normalized.isNotBlank() && normalized != currentWord) {
+                    currentWord = normalized
+                    val startBox = layoutResult.getBoundingBox(range.start)
+                    val endBox = layoutResult.getBoundingBox(range.end - 1)
+                    val left = startBox.left
+                    val top = min(startBox.top, endBox.top)
+                    val right = endBox.right
+                    val bottom = max(startBox.bottom, endBox.bottom)
+                    targetRect = LiquidRect(left, top, right - left, bottom - top)
+                    p.translate(normalized)
+                  }
                 }
               }
-              event.changes.forEach { it.consumeAllChanges() }
+              event.changes.forEach { it.consume() }
             }
           }
         }
       )
-      if (state.highlightedWord != null && state.highlightedTranslation != null) {
-        val rect = animRect.value
-        Box(
-          Modifier
-            .offset { IntOffset(rect.left.toInt(), rect.top.toInt()) }
-            .size(
-              with(density) { rect.width.toDp() },
-              with(density) { rect.height.toDp() }
+      val translation = state.highlightedTranslation
+      if (state.highlightedWord != null && translation != null) {
+        val left = animLeft.value
+        val top = animTop.value
+        val width = animWidth.value
+        val height = animHeight.value
+        if (width > 0f && height > 0f) {
+          Box(
+            Modifier
+              .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
+              .size(
+                with(density) { width.toDp() },
+                with(density) { height.toDp() }
+              )
+              .background(
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                shape = MaterialTheme.shapes.small
+              ),
+            contentAlignment = Alignment.Center
+          ) {
+            Text(
+              text = translation,
+              modifier = Modifier.padding(horizontal = 4.dp),
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSecondary,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
             )
-            .background(
-              MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-              shape = MaterialTheme.shapes.small
-            )
-        )
+          }
+        }
       }
     }
     if (state.ipa != null) {
@@ -110,6 +144,8 @@ private class FakeDetailPresenter : DetailPresenter {
   override fun initOnce(params: Int) {}
   override fun translate(word: String) {}
 }
+
+private data class LiquidRect(val left: Float, val top: Float, val width: Float, val height: Float)
 
 @Preview(showBackground = true)
 @Composable
