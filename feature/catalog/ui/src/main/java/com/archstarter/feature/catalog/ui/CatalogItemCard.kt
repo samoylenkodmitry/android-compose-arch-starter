@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
-import com.archstarter.core.designsystem.LiquidGlassBox
 import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,15 +26,14 @@ fun CatalogItemCard(
 ) {
   val p = presenter ?: rememberPresenter<CatalogItemPresenter, Int>(key = "item$id", params = id)
   val state by p.state.collectAsStateWithLifecycle()
-  LiquidGlassBox(
+  Column(
     modifier = Modifier
       .fillMaxWidth()
       .clickable { p.onClick() }
+      .padding(12.dp)
   ) {
-    Column(Modifier.padding(12.dp)) {
-      Text(state.title)
-      Text(state.summary, style = MaterialTheme.typography.bodySmall)
-    }
+    Text(state.title)
+    Text(state.summary, style = MaterialTheme.typography.bodySmall)
   }
 }
 
