@@ -25,6 +25,7 @@ interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
   suspend fun refresh()
   suspend fun article(id: Int): ArticleEntity?
+  suspend fun translate(word: String): String?
 }
 
 @Singleton
@@ -75,6 +76,14 @@ class ArticleRepository @Inject constructor(
   }
 
   override suspend fun article(id: Int): ArticleEntity? = dao.getArticle(id)
+
+  override suspend fun translate(word: String): String? {
+    val state = settings.state.value
+    val langPair = "${languageCodes[state.learningLanguage]}|${languageCodes[state.nativeLanguage]}"
+    return runCatching { translator.translate(word, langPair).responseData.translatedText }
+      .getOrNull()
+      ?.takeIf { it.isNotBlank() }
+  }
 
   private suspend fun <T> retry(times: Int = 3, block: suspend () -> T): T {
     repeat(times - 1) { attempt ->

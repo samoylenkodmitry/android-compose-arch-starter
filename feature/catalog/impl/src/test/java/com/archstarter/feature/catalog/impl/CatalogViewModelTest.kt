@@ -33,6 +33,7 @@ class CatalogViewModelTest {
         )
       }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+      override suspend fun translate(word: String): String? = word
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
     val bridge = CatalogBridge()
