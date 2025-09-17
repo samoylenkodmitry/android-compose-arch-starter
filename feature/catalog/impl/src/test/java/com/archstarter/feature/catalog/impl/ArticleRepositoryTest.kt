@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,6 +43,29 @@ class ArticleRepositoryTest {
     override suspend fun getArticle(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
     override suspend fun insert(article: ArticleEntity) { data.value = data.value + article }
     val inserted: List<ArticleEntity> get() = data.value
+  }
+
+  @Test
+  fun refreshUsesNativeToLearningLangPair() = runTest {
+    val dao = FakeArticleDao()
+    var usedLangPair: String? = null
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "ok" },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          usedLangPair = langPair
+          return TranslationResponse(TranslationData("hola"))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = SettingsRepository(),
+      dao = dao
+    )
+
+    repo.refresh()
+
+    assertEquals("en|es", usedLangPair)
   }
 
   @Test
