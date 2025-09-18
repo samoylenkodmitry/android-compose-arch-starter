@@ -15,12 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.alpha
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassBox
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
+import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,14 +35,20 @@ fun CatalogScreen(
   val state by p.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
   val density = LocalDensity.current
-  val centeredHeight by remember {
+  val itemPresenters = remember { mutableStateMapOf<Int, CatalogItemPresenter>() }
+  val centeredItemInfo by remember {
     derivedStateOf {
       val info = listState.layoutInfo
       val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2
-      val item = info.visibleItemsInfo.minByOrNull {
+      info.visibleItemsInfo.minByOrNull {
         abs((it.offset + it.size / 2) - viewportCenter)
       }
-      item?.size?.let { with(density) { it.toDp() } } ?: 0.dp
+    }
+  }
+  val centeredId = centeredItemInfo?.key as? Int
+  val centeredHeight by remember(centeredItemInfo) {
+    derivedStateOf {
+      centeredItemInfo?.size?.let { with(density) { it.toDp() } } ?: 0.dp
     }
   }
   val glassHeight by animateDpAsState(
@@ -62,17 +70,38 @@ fun CatalogScreen(
         contentPadding = PaddingValues(bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        items(state.items) { id ->
-          CatalogItemCard(id = id)
+        items(state.items, key = { it }) { id ->
+          val itemPresenter = rememberPresenter<CatalogItemPresenter, Int>(
+            key = "item$id",
+            params = id
+          )
+          DisposableEffect(itemPresenter) {
+            itemPresenters[id] = itemPresenter
+            onDispose { itemPresenters.remove(id) }
+          }
+          val isFocused = centeredId == id
+          CatalogItemCard(
+            id = id,
+            presenter = itemPresenter,
+            modifier = if (isFocused) Modifier.alpha(0f) else Modifier
+          )
         }
       }
-      if (glassHeight > 0.dp) {
+      val focusedPresenter = centeredId?.let { itemPresenters[it] }
+      if (glassHeight > 0.dp && focusedPresenter != null) {
+        val focusedState by focusedPresenter.state.collectAsStateWithLifecycle()
         LiquidGlassBox(
           modifier = Modifier
             .align(Alignment.Center)
             .fillMaxWidth()
             .height(glassHeight)
-        )
+        ) {
+          CatalogItemCardContent(
+            state = focusedState,
+            onClick = focusedPresenter::onClick,
+            modifier = Modifier.fillMaxSize()
+          )
+        }
       }
     }
   }
