@@ -83,9 +83,9 @@ class ArticleRepository @Inject constructor(
 
   override suspend fun translate(word: String): String? {
     val state = settings.state.value
-    val learningCode = languageCodes[state.learningLanguage] ?: return null
-    val nativeCode = languageCodes[state.nativeLanguage] ?: return null
-    val langPair = "$learningCode|$nativeCode"
+    val targetCode = languageCodes[state.learningLanguage] ?: return null
+    val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return null
+    val langPair = "$sourceCode|$targetCode"
     return runCatching { translator.translate(word, langPair).responseData.translatedText }
       .getOrNull()
       ?.takeIf { it.isNotBlank() }

@@ -46,6 +46,56 @@ class ArticleRepositoryTest {
   }
 
   @Test
+  fun translateUsesEnglishToLearningLangPair() = runTest {
+    val dao = FakeArticleDao()
+    var usedLangPair: String? = null
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "" },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          usedLangPair = langPair
+          return TranslationResponse(TranslationData("hola"))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = SettingsRepository(),
+      dao = dao
+    )
+
+    val result = repo.translate("word")
+
+    assertEquals("en|es", usedLangPair)
+    assertEquals("hola", result)
+  }
+
+  @Test
+  fun translateIgnoresNativeLanguageForSource() = runTest {
+    val dao = FakeArticleDao()
+    var usedLangPair: String? = null
+    val settings = SettingsRepository()
+    settings.updateNative("Serbian")
+    settings.updateLearning("German")
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "" },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          usedLangPair = langPair
+          return TranslationResponse(TranslationData("guten tag"))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = settings,
+      dao = dao
+    )
+
+    repo.translate("word")
+
+    assertEquals("en|de", usedLangPair)
+  }
+
+  @Test
   fun refreshUsesEnglishToLearningLangPair() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
