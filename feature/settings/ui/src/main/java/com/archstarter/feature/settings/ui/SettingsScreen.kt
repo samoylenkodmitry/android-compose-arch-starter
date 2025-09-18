@@ -3,12 +3,14 @@ package com.archstarter.feature.settings.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,18 +46,56 @@ fun SettingsScreen(presenter: SettingsPresenter? = null) {
 @Composable
 private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredLanguages = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            supportedLanguages
+        } else {
+            supportedLanguages.filter { language ->
+                language.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
     Box {
-        OutlinedButton(onClick = { expanded = true }) {
+        OutlinedButton(onClick = {
+            expanded = true
+            searchQuery = ""
+        }) {
             Text(selected)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            supportedLanguages.forEach { lang ->
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+                searchQuery = ""
+            }
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search languages") },
+                singleLine = true,
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            filteredLanguages.forEach { lang ->
                 DropdownMenuItem(
                     text = { Text(lang) },
                     onClick = {
                         expanded = false
                         onSelect(lang)
+                        searchQuery = ""
                     }
+                )
+            }
+            if (filteredLanguages.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("No languages found") },
+                    enabled = false,
+                    onClick = {}
                 )
             }
         }
