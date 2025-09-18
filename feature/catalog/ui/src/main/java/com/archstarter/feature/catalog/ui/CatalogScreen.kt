@@ -57,10 +57,13 @@ fun CatalogScreen(
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     Box(Modifier.weight(1f)) {
-      LazyColumn(state = listState) {
+      LazyColumn(
+        state = listState,
+        contentPadding = PaddingValues(bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
         items(state.items) { id ->
           CatalogItemCard(id = id)
-          Spacer(Modifier.height(8.dp))
         }
       }
       if (glassHeight > 0.dp) {
