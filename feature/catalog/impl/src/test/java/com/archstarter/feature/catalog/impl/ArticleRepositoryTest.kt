@@ -46,7 +46,7 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun refreshUsesNativeToLearningLangPair() = runTest {
+  fun refreshUsesEnglishToLearningLangPair() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
     val repo = ArticleRepository(
@@ -66,6 +66,32 @@ class ArticleRepositoryTest {
     repo.refresh()
 
     assertEquals("en|es", usedLangPair)
+  }
+
+  @Test
+  fun refreshIgnoresCustomNativeLanguageForSource() = runTest {
+    val dao = FakeArticleDao()
+    var usedLangPair: String? = null
+    val settings = SettingsRepository()
+    settings.updateNative("French")
+    settings.updateLearning("German")
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "ok" },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          usedLangPair = langPair
+          return TranslationResponse(TranslationData("guten tag"))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = settings,
+      dao = dao
+    )
+
+    repo.refresh()
+
+    assertEquals("en|de", usedLangPair)
   }
 
   @Test

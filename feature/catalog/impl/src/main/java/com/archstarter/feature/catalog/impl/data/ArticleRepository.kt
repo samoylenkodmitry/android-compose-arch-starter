@@ -21,6 +21,8 @@ import javax.inject.Inject
 import com.archstarter.feature.settings.api.languageCodes
 import com.archstarter.feature.settings.impl.data.SettingsRepository
 
+private const val DEFAULT_ARTICLE_LANGUAGE = "English"
+
 interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
   suspend fun refresh()
@@ -51,7 +53,9 @@ class ArticleRepository @Inject constructor(
     val original = words.randomOrNull() ?: return
 
     val state = settings.state.value
-    val langPair = "${languageCodes[state.nativeLanguage]}|${languageCodes[state.learningLanguage]}"
+    val targetCode = languageCodes[state.learningLanguage] ?: return
+    val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return
+    val langPair = "$sourceCode|$targetCode"
     val translation = runCatching {
       translator.translate(original, langPair).responseData.translatedText
     }.getOrElse { return }.takeIf { it.isNotBlank() } ?: return
@@ -79,7 +83,9 @@ class ArticleRepository @Inject constructor(
 
   override suspend fun translate(word: String): String? {
     val state = settings.state.value
-    val langPair = "${languageCodes[state.learningLanguage]}|${languageCodes[state.nativeLanguage]}"
+    val learningCode = languageCodes[state.learningLanguage] ?: return null
+    val nativeCode = languageCodes[state.nativeLanguage] ?: return null
+    val langPair = "$learningCode|$nativeCode"
     return runCatching { translator.translate(word, langPair).responseData.translatedText }
       .getOrNull()
       ?.takeIf { it.isNotBlank() }
