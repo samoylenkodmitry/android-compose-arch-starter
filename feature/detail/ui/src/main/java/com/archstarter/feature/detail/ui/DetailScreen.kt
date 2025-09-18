@@ -42,6 +42,10 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
   val state by p.state.collectAsStateWithLifecycle()
   val density = LocalDensity.current
+  val highlightPaddingX = 12.dp
+  val highlightPaddingY = 6.dp
+  val highlightPaddingXPx = with(density) { highlightPaddingX.toPx() }
+  val highlightPaddingYPx = with(density) { highlightPaddingY.toPx() }
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
   var currentWord by remember { mutableStateOf("") }
   var targetRect by remember { mutableStateOf<LiquidRect?>(null) }
@@ -68,7 +72,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       Text(
         text = content,
         onTextLayout = { layout = it },
-        modifier = Modifier.pointerInput(content) {
+        modifier = Modifier.pointerInput(content, highlightPaddingXPx, highlightPaddingYPx) {
           awaitPointerEventScope {
             while (true) {
               val event = awaitPointerEvent()
@@ -88,7 +92,11 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                     val top = min(startBox.top, endBox.top)
                     val right = endBox.right
                     val bottom = max(startBox.bottom, endBox.bottom)
-                    targetRect = LiquidRect(left, top, right - left, bottom - top)
+                    val expandedLeft = left - highlightPaddingXPx
+                    val expandedTop = top - highlightPaddingYPx
+                    val expandedWidth = (right - left + highlightPaddingXPx * 2).coerceAtLeast(0f)
+                    val expandedHeight = (bottom - top + highlightPaddingYPx * 2).coerceAtLeast(0f)
+                    targetRect = LiquidRect(expandedLeft, expandedTop, expandedWidth, expandedHeight)
                     p.translate(normalized)
                   }
                 }
@@ -120,7 +128,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
           ) {
             Text(
               text = translation,
-              modifier = Modifier.padding(horizontal = 4.dp),
+              modifier = Modifier.padding(horizontal = highlightPaddingX, vertical = highlightPaddingY),
               style = MaterialTheme.typography.bodyMedium,
               color = MaterialTheme.colorScheme.onSecondary,
               maxLines = 1,
