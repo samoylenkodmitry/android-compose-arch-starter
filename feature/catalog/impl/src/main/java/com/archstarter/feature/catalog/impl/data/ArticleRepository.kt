@@ -142,7 +142,10 @@ object ArticleDataModule {
   @Provides
   @Singleton
   fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-    Room.databaseBuilder(context, AppDatabase::class.java, "articles.db").build()
+    Room.databaseBuilder(context, AppDatabase::class.java, "articles.db")
+      .fallbackToDestructiveMigration(dropAllTables = true)
+      .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
+      .build()
 
   @Provides
   fun provideArticleDao(db: AppDatabase): ArticleDao = db.articleDao()
