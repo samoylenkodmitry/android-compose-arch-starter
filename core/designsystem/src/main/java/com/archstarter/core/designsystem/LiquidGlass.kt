@@ -78,7 +78,8 @@ half4 main(float2 coord) {
     float slope = dHeightDx(x, u_profile);
     float bend = slope * (1.0 - 1.0 / max(u_ri, 1.0001));
     float2 disp = inwardN * (u_scale * bend);
-    half4 refr = background.eval(coord + disp);
+    float2 sampleCoord = clamp(coord + disp, float2(0.5), u_size - float2(0.5));
+    half4 refr = background.eval(sampleCoord);
     float rim = pow(1.0 - x, 3.0);
     half specA = half(clamp(u_highlight * rim, 0.0, 1.0));
     half4 spec = half4(1.0, 1.0, 1.0, specA);
