@@ -31,7 +31,11 @@ interface SummarizerService {
 }
 
 @Serializable
-data class TranslationResponse(@SerialName("responseData") val responseData: TranslationData)
+data class TranslationResponse(
+  @SerialName("responseData") val responseData: TranslationData,
+  @SerialName("responseStatus") val responseStatus: Int = 200,
+  @SerialName("responseDetails") val responseDetails: String? = null
+)
 @Serializable
 data class TranslationData(@SerialName("translatedText") val translatedText: String)
 
