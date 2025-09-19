@@ -22,14 +22,28 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun CatalogItemCard(
   id: Int,
+  modifier: Modifier = Modifier,
   presenter: CatalogItemPresenter? = null,
 ) {
   val p = presenter ?: rememberPresenter<CatalogItemPresenter, Int>(key = "item$id", params = id)
   val state by p.state.collectAsStateWithLifecycle()
+  CatalogItemCardContent(
+    state = state,
+    onClick = p::onClick,
+    modifier = modifier
+  )
+}
+
+@Composable
+internal fun CatalogItemCardContent(
+  state: CatalogItem,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
   Column(
-    modifier = Modifier
+    modifier = modifier
       .fillMaxWidth()
-      .clickable { p.onClick() }
+      .clickable(onClick = onClick)
       .padding(12.dp)
   ) {
     Text(state.title)
