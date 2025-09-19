@@ -1,5 +1,7 @@
 package com.archstarter.feature.catalog.ui
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,18 +10,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
-import com.archstarter.core.designsystem.LiquidGlassBox
+import com.archstarter.core.designsystem.LiquidGlassRect
+import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
@@ -36,6 +38,7 @@ fun CatalogScreen(
   val listState = rememberLazyListState()
   val density = LocalDensity.current
   val itemPresenters = remember { mutableStateMapOf<Int, CatalogItemPresenter>() }
+  var viewportSize by remember { mutableStateOf(IntSize.Zero) }
   val centeredItemInfo by remember {
     derivedStateOf {
       val info = listState.layoutInfo
@@ -46,16 +49,47 @@ fun CatalogScreen(
     }
   }
   val centeredId = centeredItemInfo?.key as? Int
-  val centeredHeight by remember(centeredItemInfo) {
+  val targetGlassRect by remember {
     derivedStateOf {
-      centeredItemInfo?.size?.let { with(density) { it.toDp() } } ?: 0.dp
+      val info = centeredItemInfo ?: return@derivedStateOf null
+      if (viewportSize.width == 0 || viewportSize.height == 0) return@derivedStateOf null
+      val layoutInfo = listState.layoutInfo
+      val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+      val topPx = viewportCenter - info.size / 2f
+      val maxTopPx = (viewportSize.height - info.size).coerceAtLeast(0)
+      val clampedTopPx = topPx.coerceIn(0f, maxTopPx.toFloat())
+      with(density) {
+        LiquidGlassRect(
+          left = 0.dp,
+          top = clampedTopPx.toDp(),
+          width = viewportSize.width.toDp(),
+          height = info.size.toDp(),
+        )
+      }
     }
   }
+  val glassTop by animateDpAsState(
+    targetValue = targetGlassRect?.top ?: 0.dp,
+    animationSpec = tween(durationMillis = 300, delayMillis = 100),
+    label = "glassTop"
+  )
   val glassHeight by animateDpAsState(
-    targetValue = centeredHeight,
+    targetValue = targetGlassRect?.height ?: 0.dp,
     animationSpec = tween(durationMillis = 300, delayMillis = 100),
     label = "glassHeight"
   )
+  val glassWidth by animateDpAsState(
+    targetValue = targetGlassRect?.width ?: 0.dp,
+    animationSpec = tween(durationMillis = 300, delayMillis = 100),
+    label = "glassWidth"
+  )
+  val glassRect = targetGlassRect?.let { rect ->
+    if (glassWidth > 0.dp && glassHeight > 0.dp) {
+      rect.copy(top = glassTop, width = glassWidth, height = glassHeight)
+    } else {
+      null
+    }
+  }
 
   Column(Modifier.fillMaxSize().padding(16.dp)) {
     Text("Catalog", style = MaterialTheme.typography.titleLarge)
@@ -65,42 +99,44 @@ fun CatalogScreen(
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     Box(Modifier.weight(1f)) {
-      LazyColumn(
-        state = listState,
-        contentPadding = PaddingValues(bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        items(state.items, key = { it }) { id ->
-          val itemPresenter = rememberPresenter<CatalogItemPresenter, Int>(
-            key = "item$id",
-            params = id
-          )
-          DisposableEffect(itemPresenter) {
-            itemPresenters[id] = itemPresenter
-            onDispose { itemPresenters.remove(id) }
-          }
-          val isFocused = centeredId == id
-          CatalogItemCard(
-            id = id,
-            presenter = itemPresenter,
-            modifier = if (isFocused) Modifier.alpha(0f) else Modifier
-          )
-        }
-      }
       val focusedPresenter = centeredId?.let { itemPresenters[it] }
-      if (glassHeight > 0.dp && focusedPresenter != null) {
-        val focusedState by focusedPresenter.state.collectAsStateWithLifecycle()
-        LiquidGlassBox(
-          modifier = Modifier
-            .align(Alignment.Center)
-            .fillMaxWidth()
-            .height(glassHeight)
+      val focusedState = focusedPresenter?.state?.collectAsStateWithLifecycle()?.value
+      LiquidGlassRectOverlay(
+        rect = glassRect,
+        modifier = Modifier
+          .fillMaxSize()
+          .onSizeChanged { viewportSize = it },
+        overlayContent = { _ ->
+          if (focusedState != null && focusedPresenter != null) {
+            CatalogItemCardContent(
+              state = focusedState,
+              onClick = focusedPresenter::onClick,
+              modifier = Modifier.fillMaxSize()
+            )
+          }
+        }
+      ) {
+        LazyColumn(
+          state = listState,
+          contentPadding = PaddingValues(bottom = 8.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          CatalogItemCardContent(
-            state = focusedState,
-            onClick = focusedPresenter::onClick,
-            modifier = Modifier.fillMaxSize()
-          )
+          items(state.items, key = { it }) { id ->
+            val itemPresenter = rememberPresenter<CatalogItemPresenter, Int>(
+              key = "item$id",
+              params = id
+            )
+            DisposableEffect(itemPresenter) {
+              itemPresenters[id] = itemPresenter
+              onDispose { itemPresenters.remove(id) }
+            }
+            val isFocused = centeredId == id
+            CatalogItemCard(
+              id = id,
+              presenter = itemPresenter,
+              modifier = if (isFocused) Modifier.alpha(0f) else Modifier
+            )
+          }
         }
       }
     }

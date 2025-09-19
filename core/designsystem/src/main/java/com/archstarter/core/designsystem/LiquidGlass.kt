@@ -5,6 +5,10 @@ import android.graphics.RuntimeShader
 import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -96,6 +100,16 @@ data class LiquidGlassSpec(
     val highlight: Float = 0.6f,
 )
 
+@Stable
+data class LiquidGlassRect(
+    val left: Dp,
+    val top: Dp,
+    val width: Dp,
+    val height: Dp,
+) {
+    val isEmpty: Boolean get() = width <= 0.dp || height <= 0.dp
+}
+
 @Composable
 fun LiquidGlassBox(
     modifier: Modifier = Modifier,
@@ -153,6 +167,32 @@ fun LiquidGlassBox(
                 .drawBehind { drawFallbackGlass(spec) }
         ) {
             content()
+        }
+    }
+}
+
+@Composable
+fun LiquidGlassRectOverlay(
+    rect: LiquidGlassRect?,
+    modifier: Modifier = Modifier,
+    spec: LiquidGlassSpec = LiquidGlassSpec(),
+    overlayContent: @Composable BoxScope.(LiquidGlassRect) -> Unit = {},
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(modifier) {
+        content()
+        if (rect != null && !rect.isEmpty) {
+            Box(Modifier.fillMaxSize()) {
+                LiquidGlassBox(
+                    modifier = Modifier
+                        .offset(x = rect.left, y = rect.top)
+                        .width(rect.width)
+                        .height(rect.height),
+                    spec = spec,
+                ) {
+                    overlayContent(rect)
+                }
+            }
         }
     }
 }
