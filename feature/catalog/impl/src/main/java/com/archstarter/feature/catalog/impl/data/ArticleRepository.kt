@@ -10,6 +10,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -22,6 +24,12 @@ import com.archstarter.feature.settings.api.languageCodes
 import com.archstarter.feature.settings.impl.data.SettingsRepository
 
 private const val DEFAULT_ARTICLE_LANGUAGE = "English"
+private const val HTTP_OK = 200
+
+@Serializable
+private data class AiTranslation(val translatedText: String)
+
+private val fallbackJson = Json { ignoreUnknownKeys = true }
 
 interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
@@ -56,9 +64,12 @@ class ArticleRepository @Inject constructor(
     val targetCode = languageCodes[state.learningLanguage] ?: return
     val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return
     val langPair = "$sourceCode|$targetCode"
-    val translation = runCatching {
-      translator.translate(original, langPair).responseData.translatedText
-    }.getOrElse { return }.takeIf { it.isNotBlank() } ?: return
+    val translation = translateWithFallback(
+      word = original,
+      langPair = langPair,
+      sourceLanguage = DEFAULT_ARTICLE_LANGUAGE,
+      targetLanguage = state.learningLanguage
+    ) ?: return
 
     val ipa = runCatching {
       dictionary.lookup(original).firstOrNull()?.phonetics?.firstOrNull()?.text
@@ -86,9 +97,41 @@ class ArticleRepository @Inject constructor(
     val targetCode = languageCodes[state.learningLanguage] ?: return null
     val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return null
     val langPair = "$sourceCode|$targetCode"
-    return runCatching { translator.translate(word, langPair).responseData.translatedText }
+    return translateWithFallback(
+      word = word,
+      langPair = langPair,
+      sourceLanguage = DEFAULT_ARTICLE_LANGUAGE,
+      targetLanguage = state.learningLanguage
+    )
+  }
+
+  private suspend fun translateWithFallback(
+    word: String,
+    langPair: String,
+    sourceLanguage: String,
+    targetLanguage: String
+  ): String? {
+    val translation = runCatching { translator.translate(word, langPair) }
       .getOrNull()
+      ?.takeIf { it.responseStatus == HTTP_OK }
+      ?.responseData
+      ?.translatedText
       ?.takeIf { it.isNotBlank() }
+
+    if (translation != null) return translation
+
+    val prompt = buildString {
+      appendLine("Translate the following word from $sourceLanguage to $targetLanguage.")
+      appendLine("Respond ONLY with valid JSON using this schema: {\"translatedText\":\"<translation>\"}.")
+      append("Word: $word")
+    }
+
+    val fallback = runCatching {
+      val response = retry { summarizer.summarize(prompt) }
+      fallbackJson.decodeFromString<AiTranslation>(response).translatedText
+    }.getOrNull()
+
+    return fallback?.takeIf { it.isNotBlank() }
   }
 
   private suspend fun <T> retry(times: Int = 3, block: suspend () -> T): T {

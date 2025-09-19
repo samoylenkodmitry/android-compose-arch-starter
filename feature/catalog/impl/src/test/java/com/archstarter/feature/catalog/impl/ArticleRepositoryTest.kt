@@ -96,6 +96,28 @@ class ArticleRepositoryTest {
   }
 
   @Test
+  fun translateFallsBackToAiOnErrorStatus() = runTest {
+    val dao = FakeArticleDao()
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService {
+        override suspend fun summarize(prompt: String) = "{\"translatedText\":\"hola\"}"
+      },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse =
+          TranslationResponse(TranslationData("api"), responseStatus = 403)
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = SettingsRepository(),
+      dao = dao
+    )
+
+    val translation = repo.translate("word")
+
+    assertEquals("hola", translation)
+  }
+
+  @Test
   fun refreshUsesEnglishToLearningLangPair() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
@@ -182,6 +204,30 @@ class ArticleRepositoryTest {
     repo.refresh()
 
     assertTrue(dao.inserted.isEmpty())
+  }
+
+  @Test
+  fun refreshFallsBackToAiOnErrorStatus() = runTest {
+    val dao = FakeArticleDao()
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService {
+        override suspend fun summarize(prompt: String): String =
+          if (prompt.startsWith("Summarize this")) "ok" else "{\"translatedText\":\"hola\"}"
+      },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse =
+          TranslationResponse(TranslationData("api"), responseStatus = 403)
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = SettingsRepository(),
+      dao = dao
+    )
+
+    repo.refresh()
+
+    assertEquals(1, dao.inserted.size)
+    assertEquals("hola", dao.inserted.first().translatedWord)
   }
 }
 
