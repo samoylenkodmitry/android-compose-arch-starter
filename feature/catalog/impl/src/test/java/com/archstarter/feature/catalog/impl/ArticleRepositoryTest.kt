@@ -46,7 +46,7 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun translateUsesEnglishToLearningLangPair() = runTest {
+  fun translateUsesEnglishToNativeLangPair() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
     val repo = ArticleRepository(
@@ -65,12 +65,12 @@ class ArticleRepositoryTest {
 
     val result = repo.translate("word")
 
-    assertEquals("en|es", usedLangPair)
+    assertEquals("en|en", usedLangPair)
     assertEquals("hola", result)
   }
 
   @Test
-  fun translateIgnoresNativeLanguageForSource() = runTest {
+  fun translateUsesNativeLanguageForTarget() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
     val settings = SettingsRepository()
@@ -92,7 +92,7 @@ class ArticleRepositoryTest {
 
     repo.translate("word")
 
-    assertEquals("en|de", usedLangPair)
+    assertEquals("en|sr", usedLangPair)
   }
 
   @Test
@@ -118,7 +118,7 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun refreshUsesEnglishToLearningLangPair() = runTest {
+  fun refreshUsesEnglishToNativeLangPair() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
     val repo = ArticleRepository(
@@ -137,11 +137,11 @@ class ArticleRepositoryTest {
 
     repo.refresh()
 
-    assertEquals("en|es", usedLangPair)
+    assertEquals("en|en", usedLangPair)
   }
 
   @Test
-  fun refreshIgnoresCustomNativeLanguageForSource() = runTest {
+  fun refreshUsesNativeLanguageForTarget() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
     val settings = SettingsRepository()
@@ -163,7 +163,7 @@ class ArticleRepositoryTest {
 
     repo.refresh()
 
-    assertEquals("en|de", usedLangPair)
+    assertEquals("en|fr", usedLangPair)
   }
 
   @Test

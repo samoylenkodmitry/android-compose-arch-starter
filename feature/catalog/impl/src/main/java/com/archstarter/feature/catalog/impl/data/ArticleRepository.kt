@@ -61,14 +61,14 @@ class ArticleRepository @Inject constructor(
     val original = words.randomOrNull() ?: return
 
     val state = settings.state.value
-    val targetCode = languageCodes[state.learningLanguage] ?: return
+    val targetCode = languageCodes[state.nativeLanguage] ?: return
     val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return
     val langPair = "$sourceCode|$targetCode"
     val translation = translateWithFallback(
       word = original,
       langPair = langPair,
       sourceLanguage = DEFAULT_ARTICLE_LANGUAGE,
-      targetLanguage = state.learningLanguage
+      targetLanguage = state.nativeLanguage
     ) ?: return
 
     val ipa = runCatching {
@@ -94,14 +94,14 @@ class ArticleRepository @Inject constructor(
 
   override suspend fun translate(word: String): String? {
     val state = settings.state.value
-    val targetCode = languageCodes[state.learningLanguage] ?: return null
+    val targetCode = languageCodes[state.nativeLanguage] ?: return null
     val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return null
     val langPair = "$sourceCode|$targetCode"
     return translateWithFallback(
       word = word,
       langPair = langPair,
       sourceLanguage = DEFAULT_ARTICLE_LANGUAGE,
-      targetLanguage = state.learningLanguage
+      targetLanguage = state.nativeLanguage
     )
   }
 
