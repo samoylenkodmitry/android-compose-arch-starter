@@ -26,9 +26,12 @@ import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.launch
 
 class CatalogViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
@@ -45,13 +48,17 @@ class CatalogViewModel @AssistedInject constructor(
     init {
         println("CatalogViewModel created vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
         bridge.setDelegate(this)
-        viewModelScope.launch {
-            repo.articles.collect { list ->
+        val articles = repo.articles
+        articles
+            .onEach { list ->
                 _state.value = CatalogState(list.map { it.id })
             }
-        }
+            .launchIn(viewModelScope)
         viewModelScope.launch {
-            repeat(10) { repo.refresh() }
+            val hasArticles = articles.first().isNotEmpty()
+            if (!hasArticles) {
+                repeat(10) { repo.refresh() }
+            }
         }
     }
     override fun onCleared() {

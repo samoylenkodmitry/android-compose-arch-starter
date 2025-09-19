@@ -74,4 +74,27 @@ class CatalogViewModelTest {
     assertEquals(10, refreshCount)
     assertEquals((10 downTo 1).toList(), vm.state.value.items)
   }
+
+  @Test
+  fun initDoesNotFetchWhenArticlesAlreadyExist() = runTest {
+    var refreshCount = 0
+    val existing = ArticleEntity(1, "One", "S", "C", "u", "o", "t", null, 0L)
+    val data = MutableStateFlow(listOf(existing))
+    val repo = object : ArticleRepo {
+      override val articles: StateFlow<List<ArticleEntity>> = data
+      override suspend fun refresh() { refreshCount++ }
+      override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+      override suspend fun translate(word: String): String? = word
+    }
+    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val bridge = CatalogBridge()
+    val screenBus = ScreenBus()
+    val handle = SavedStateHandle()
+    val vm = CatalogViewModel(repo, App(nav), bridge, screenBus, handle)
+
+    advanceUntilIdle()
+
+    assertEquals(0, refreshCount)
+    assertEquals(listOf(existing.id), vm.state.value.items)
+  }
 }
