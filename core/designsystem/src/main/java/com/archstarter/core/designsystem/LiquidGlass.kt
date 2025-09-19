@@ -5,10 +5,6 @@ import android.graphics.RuntimeShader
 import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -17,8 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -27,6 +24,7 @@ import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
@@ -111,102 +109,94 @@ data class LiquidGlassRect(
 }
 
 @Composable
-fun LiquidGlassBox(
-    modifier: Modifier = Modifier,
-    spec: LiquidGlassSpec = LiquidGlassSpec(),
-    content: @Composable BoxScope.() -> Unit = {},
-) {
-    val density = LocalDensity.current
-    var sizePx by remember { mutableStateOf(Size.Zero) }
-    val shader = remember {
-        if (Build.VERSION.SDK_INT >= 33) RuntimeShader(LIQUID_GLASS_AGSL) else null
-    }
-
-    fun updateUniforms() {
-        if (Build.VERSION.SDK_INT < 33 || shader == null) return
-        val w = sizePx.width
-        val h = sizePx.height
-        if (w <= 0f || h <= 0f) return
-        val cx = w / 2f
-        val cy = h / 2f
-        with(density) {
-            val corner = spec.cornerRadius.toPx()
-            val bezel = spec.bezelWidth.toPx()
-            shader.setFloatUniform("u_size", w, h)
-            shader.setFloatUniform("u_center", cx, cy)
-            shader.setFloatUniform("u_rectSize", w, h)
-            shader.setFloatUniform("u_radius", corner)
-            shader.setFloatUniform("u_bezel", max(1f, bezel))
-            shader.setFloatUniform("u_scale", spec.displacementScalePx)
-            shader.setFloatUniform("u_ri", spec.refractiveIndex)
-            shader.setFloatUniform("u_profile", spec.profile)
-            shader.setFloatUniform("u_highlight", spec.highlight)
-        }
-    }
-
-    LaunchedEffect(sizePx, spec) { updateUniforms() }
-
-    if (Build.VERSION.SDK_INT >= 33 && shader != null) {
-        Box(
-            modifier
-                .onSizeChanged { sizePx = Size(it.width.toFloat(), it.height.toFloat()) }
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                    renderEffect = RenderEffect
-                        .createRuntimeShaderEffect(shader, "background")
-                        .asComposeRenderEffect()
-                    clip = false
-                }
-        ) {
-            content()
-        }
-    } else {
-        Box(
-            modifier
-                .onSizeChanged { sizePx = Size(it.width.toFloat(), it.height.toFloat()) }
-                .drawBehind { drawFallbackGlass(spec) }
-        ) {
-            content()
-        }
-    }
-}
-
-@Composable
 fun LiquidGlassRectOverlay(
     rect: LiquidGlassRect?,
     modifier: Modifier = Modifier,
     spec: LiquidGlassSpec = LiquidGlassSpec(),
-    overlayContent: @Composable BoxScope.(LiquidGlassRect) -> Unit = {},
     content: @Composable BoxScope.() -> Unit,
 ) {
-    Box(modifier) {
-        content()
-        if (rect != null && !rect.isEmpty) {
-            Box(Modifier.fillMaxSize()) {
-                LiquidGlassBox(
-                    modifier = Modifier
-                        .offset(x = rect.left, y = rect.top)
-                        .width(rect.width)
-                        .height(rect.height),
-                    spec = spec,
-                ) {
-                    overlayContent(rect)
+    val density = LocalDensity.current
+    var containerSize by remember { mutableStateOf(Size.Zero) }
+    val shader = remember {
+        if (Build.VERSION.SDK_INT >= 33) RuntimeShader(LIQUID_GLASS_AGSL) else null
+    }
+    val rectPx = remember(rect, density) {
+        rect?.takeUnless { it.isEmpty }?.toRect(density)
+    }
+
+    LaunchedEffect(rectPx, containerSize, spec, density, shader) {
+        if (Build.VERSION.SDK_INT < 33) return@LaunchedEffect
+        val runtimeShader = shader ?: return@LaunchedEffect
+        val r = rectPx ?: return@LaunchedEffect
+        if (containerSize.width <= 0f || containerSize.height <= 0f) return@LaunchedEffect
+        val corner = with(density) { spec.cornerRadius.toPx() }
+        val bezel = with(density) { spec.bezelWidth.toPx() }
+        runtimeShader.setFloatUniform("u_size", containerSize.width, containerSize.height)
+        runtimeShader.setFloatUniform("u_center", r.center.x, r.center.y)
+        runtimeShader.setFloatUniform("u_rectSize", r.width, r.height)
+        runtimeShader.setFloatUniform("u_radius", corner)
+        runtimeShader.setFloatUniform("u_bezel", max(1f, bezel))
+        runtimeShader.setFloatUniform("u_scale", spec.displacementScalePx)
+        runtimeShader.setFloatUniform("u_ri", spec.refractiveIndex)
+        runtimeShader.setFloatUniform("u_profile", spec.profile)
+        runtimeShader.setFloatUniform("u_highlight", spec.highlight)
+    }
+
+    val renderEffect = remember(rectPx, shader) {
+        if (Build.VERSION.SDK_INT >= 33 && shader != null && rectPx != null) {
+            RenderEffect
+                .createRuntimeShaderEffect(shader, "background")
+                .asComposeRenderEffect()
+        } else {
+            null
+        }
+    }
+
+    val layerModifier = if (renderEffect != null) {
+        Modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+            this.renderEffect = renderEffect
+            clip = false
+        }
+    } else {
+        Modifier
+    }
+
+    Box(
+        modifier
+            .onSizeChanged { containerSize = Size(it.width.toFloat(), it.height.toFloat()) }
+            .then(layerModifier)
+            .drawWithContent {
+                drawContent()
+                if ((Build.VERSION.SDK_INT < 33 || shader == null) && rectPx != null) {
+                    drawFallbackGlass(rectPx, spec)
                 }
             }
-        }
+    ) {
+        content()
     }
 }
 
-private fun DrawScope.drawFallbackGlass(spec: LiquidGlassSpec) {
+private fun LiquidGlassRect.toRect(density: Density): Rect = with(density) {
+    val leftPx = left.toPx()
+    val topPx = top.toPx()
+    val widthPx = width.toPx()
+    val heightPx = height.toPx()
+    Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx)
+}
+
+private fun DrawScope.drawFallbackGlass(rect: Rect, spec: LiquidGlassSpec) {
     val corner = androidx.compose.ui.geometry.CornerRadius(spec.cornerRadius.toPx())
     drawRoundRect(
         color = Color.White.copy(alpha = 0.06f),
+        topLeft = Offset(rect.left, rect.top),
+        size = Size(rect.width, rect.height),
         cornerRadius = corner
     )
     drawRoundRect(
         color = Color.White.copy(alpha = 0.10f),
-        topLeft = Offset.Zero,
-        size = size,
+        topLeft = Offset(rect.left, rect.top),
+        size = Size(rect.width, rect.height),
         cornerRadius = corner
     )
 }

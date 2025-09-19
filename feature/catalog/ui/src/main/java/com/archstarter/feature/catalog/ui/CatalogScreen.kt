@@ -11,7 +11,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
@@ -24,7 +23,6 @@ import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
-import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +35,6 @@ fun CatalogScreen(
   val state by p.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
   val density = LocalDensity.current
-  val itemPresenters = remember { mutableStateMapOf<Int, CatalogItemPresenter>() }
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
   val centeredItemInfo by remember {
     derivedStateOf {
@@ -48,7 +45,6 @@ fun CatalogScreen(
       }
     }
   }
-  val centeredId = centeredItemInfo?.key as? Int
   val targetGlassRect by remember {
     derivedStateOf {
       val info = centeredItemInfo ?: return@derivedStateOf null
@@ -99,22 +95,11 @@ fun CatalogScreen(
     Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
     Spacer(Modifier.height(8.dp))
     Box(Modifier.weight(1f)) {
-      val focusedPresenter = centeredId?.let { itemPresenters[it] }
-      val focusedState = focusedPresenter?.state?.collectAsStateWithLifecycle()?.value
       LiquidGlassRectOverlay(
         rect = glassRect,
         modifier = Modifier
           .fillMaxSize()
-          .onSizeChanged { viewportSize = it },
-        overlayContent = { _ ->
-          if (focusedState != null && focusedPresenter != null) {
-            CatalogItemCardContent(
-              state = focusedState,
-              onClick = focusedPresenter::onClick,
-              modifier = Modifier.fillMaxSize()
-            )
-          }
-        }
+          .onSizeChanged { viewportSize = it }
       ) {
         LazyColumn(
           state = listState,
@@ -122,20 +107,7 @@ fun CatalogScreen(
           verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
           items(state.items, key = { it }) { id ->
-            val itemPresenter = rememberPresenter<CatalogItemPresenter, Int>(
-              key = "item$id",
-              params = id
-            )
-            DisposableEffect(itemPresenter) {
-              itemPresenters[id] = itemPresenter
-              onDispose { itemPresenters.remove(id) }
-            }
-            val isFocused = centeredId == id
-            CatalogItemCard(
-              id = id,
-              presenter = itemPresenter,
-              modifier = if (isFocused) Modifier.alpha(0f) else Modifier
-            )
+            CatalogItemCard(id = id)
           }
         }
       }
