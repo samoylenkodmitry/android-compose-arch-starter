@@ -24,9 +24,9 @@ import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlin.math.roundToInt
 
 @Composable
 fun CatalogScreen(
@@ -101,19 +101,36 @@ fun CatalogScreen(
     }
   }
 
+  var skipSnap by remember { mutableStateOf(false) }
+  var lastSnapRequest by remember { mutableStateOf<Pair<Int, Int>?>(null) }
   LaunchedEffect(listState.isScrollInProgress) {
-    if (!listState.isScrollInProgress) {
+    if (listState.isScrollInProgress) {
+      skipSnap = false
+      lastSnapRequest = null
+    } else if (!skipSnap) {
       val layoutInfo = listState.layoutInfo
       val info = centeredItemInfo ?: return@LaunchedEffect
-      val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+      val viewportStart = layoutInfo.viewportStartOffset.toFloat()
+      val viewportEnd = layoutInfo.viewportEndOffset.toFloat()
+      if (viewportEnd <= viewportStart) return@LaunchedEffect
+      val viewportCenter = (viewportStart + viewportEnd) / 2f
       val itemCenter = info.offset + info.size / 2f
       val difference = itemCenter - viewportCenter
       if (abs(difference) > 0.5f) {
-        val desiredTop = viewportCenter - info.size / 2f
-        val scrollOffset = (desiredTop - layoutInfo.viewportStartOffset)
-          .coerceAtLeast(0f)
-          .roundToInt()
-        listState.animateScrollToItem(index = info.index, scrollOffset = scrollOffset)
+        val viewportSize = viewportEnd - viewportStart
+        val minTop = viewportStart
+        val maxTop = (viewportStart + viewportSize - info.size).coerceAtLeast(minTop)
+        val desiredTop = (viewportCenter - info.size / 2f).coerceIn(minTop, maxTop)
+        val scrollOffset = (desiredTop - viewportStart).roundToInt()
+        val request = info.index to scrollOffset
+        if (lastSnapRequest == request) {
+          skipSnap = true
+        } else {
+          lastSnapRequest = request
+          listState.animateScrollToItem(index = info.index, scrollOffset = scrollOffset)
+        }
+      } else {
+        lastSnapRequest = null
       }
     }
   }
