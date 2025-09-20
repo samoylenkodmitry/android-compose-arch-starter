@@ -2,6 +2,8 @@ package com.archstarter.feature.catalog.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,7 +34,6 @@ import com.archstarter.feature.catalog.api.CatalogState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 private const val TOP_SPACER_KEY = "catalog_top_spacer"
 private const val BOTTOM_SPACER_KEY = "catalog_bottom_spacer"
@@ -44,6 +45,10 @@ fun CatalogScreen(
   val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
   val state by p.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
+  val flingBehavior = rememberSnapFlingBehavior(
+    lazyListState = listState,
+    snapPosition = SnapPosition.Center
+  )
   val density = LocalDensity.current
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
   var viewportOffset by remember { mutableStateOf(Offset.Zero) }
@@ -174,27 +179,6 @@ fun CatalogScreen(
     listOfNotNull(centerGlassRect, settingsGlassRect, refreshGlassRect)
   }
 
-  LaunchedEffect(listState) {
-    snapshotFlow { listState.isScrollInProgress to centeredItemInfo }
-      .collect { (isScrolling, targetInfo) ->
-        if (!isScrolling) {
-          val layoutInfo = listState.layoutInfo
-          val itemInfo = targetInfo ?: return@collect
-          if (layoutInfo.visibleItemsInfo.isEmpty()) return@collect
-          val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
-          val itemCenter = itemInfo.offset + itemInfo.size / 2f
-          val diff = itemCenter - viewportCenter
-          if (abs(diff) > 1f) {
-            val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-            val desiredOffset = (itemInfo.offset - diff).roundToInt()
-            val maxOffset = (viewportHeight - itemInfo.size).coerceAtLeast(0)
-            val clampedOffset = desiredOffset.coerceIn(0, maxOffset)
-            listState.animateScrollToItem(itemInfo.index, clampedOffset)
-          }
-        }
-      }
-  }
-
   Box(Modifier.fillMaxSize()) {
     LiquidGlassRectOverlay(
       rects = glassRects,
@@ -215,6 +199,7 @@ fun CatalogScreen(
         ) {
           LazyColumn(
             state = listState,
+            flingBehavior = flingBehavior,
             contentPadding = PaddingValues(bottom = listBottomPadding),
             verticalArrangement = Arrangement.spacedBy(itemSpacing)
           ) {
