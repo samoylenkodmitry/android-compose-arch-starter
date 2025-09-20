@@ -23,13 +23,22 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DetailViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
@@ -44,40 +53,67 @@ class DetailViewModel @AssistedInject constructor(
         super.onCleared()
         println("DetailsViewModel clear vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
     }
-    private val _state = MutableStateFlow(DetailState())
-    override val state: StateFlow<DetailState> = _state
-    private var initialized = false
+    private val articleIds = MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
+    private val translationRequests = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    private val highlightState = MutableStateFlow(Highlight())
     private val translationCache = mutableMapOf<String, String>()
-    private var translationJob: Job? = null
-    private var loadEventSent = false
+    private var announcedArticleId: Int? = null
 
-    override fun initOnce(params: Int) {
-        if (initialized) return
-        initialized = true
-        viewModelScope.launch {
-            repo.article(params).collect { entity ->
-                if (entity == null) return@collect
-                val content = entity.contentTranslated ?: entity.contentOriginal
-                val originalWord = entity.originalWord.orEmpty()
-                val translatedWord = entity.translatedWord.orEmpty()
-                _state.value = _state.value.copy(
-                    title = entity.title,
-                    content = content,
-                    sourceUrl = entity.sourceUrl,
-                    originalWord = originalWord,
-                    translatedWord = translatedWord,
-                    ipa = entity.ipa
-                )
-                cacheTranslation(originalWord, translatedWord)
-                if (!loadEventSent) {
-                    screenBus.send("Detail loaded for article $params: ${entity.title}")
-                    loadEventSent = true
-                }
-                if (entity.summaryTranslated == null || entity.contentTranslated == null) {
-                    requestArticleTranslation(entity.id)
+    private val articleState = articleIds
+        .flatMapLatest { id -> repo.article(id) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val articles = articleState.filterNotNull()
+
+    override val state: StateFlow<DetailState> = combine(articles, highlightState) { entity, highlight ->
+        val content = entity.contentTranslated ?: entity.contentOriginal
+        DetailState(
+            title = entity.title,
+            content = content,
+            sourceUrl = entity.sourceUrl,
+            originalWord = entity.originalWord.orEmpty(),
+            translatedWord = entity.translatedWord.orEmpty(),
+            ipa = entity.ipa,
+            highlightedWord = highlight.word,
+            highlightedTranslation = highlight.translation
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = DetailState()
+    )
+
+    init {
+        translationRequests
+            .onEach { id -> repo.translateArticle(id) }
+            .launchIn(viewModelScope)
+
+        articles
+            .onEach { entity ->
+                cacheTranslation(entity.originalWord.orEmpty(), entity.translatedWord.orEmpty())
+                if (announcedArticleId != entity.id) {
+                    screenBus.send("Detail loaded for article ${entity.id}: ${entity.title}")
+                    announcedArticleId = entity.id
                 }
             }
-        }
+            .launchIn(viewModelScope)
+
+        articles
+            .distinctUntilChanged { old, new ->
+                old.id == new.id &&
+                    old.summaryTranslated == new.summaryTranslated &&
+                    old.contentTranslated == new.contentTranslated
+            }
+            .onEach { entity ->
+                if (entity.summaryTranslated == null || entity.contentTranslated == null) {
+                    translationRequests.emit(entity.id)
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    override fun initOnce(params: Int) {
+        articleIds.tryEmit(params)
     }
 
     override fun translate(word: String) {
@@ -99,10 +135,7 @@ class DetailViewModel @AssistedInject constructor(
     }
 
     private fun updateHighlighted(word: String, translation: String) {
-        _state.value = _state.value.copy(
-            highlightedWord = word,
-            highlightedTranslation = translation
-        )
+        highlightState.value = Highlight(word, translation)
     }
 
     private fun cacheTranslation(word: String, translation: String) {
@@ -112,20 +145,16 @@ class DetailViewModel @AssistedInject constructor(
         translationCache[cacheKey(normalizedWord)] = normalizedTranslation
     }
 
-    private fun requestArticleTranslation(id: Int) {
-        if (translationJob?.isActive == true) return
-        translationJob = viewModelScope.launch {
-            repo.translateArticle(id)
-        }.also { job ->
-            job.invokeOnCompletion { if (translationJob === job) translationJob = null }
-        }
-    }
-
     private fun normalizeWord(word: String): String = word.trim()
 
     private fun normalizeTranslation(translation: String): String = translation.trim()
 
     private fun cacheKey(word: String): String = word.lowercase(Locale.ROOT)
+
+    private data class Highlight(
+        val word: String? = null,
+        val translation: String? = null,
+    )
 
     @AssistedFactory
     interface Factory : AssistedVmFactory<DetailViewModel>

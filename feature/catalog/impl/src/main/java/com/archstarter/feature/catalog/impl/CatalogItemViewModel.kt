@@ -23,25 +23,61 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CatalogItemViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
     private val bridge: CatalogBridge,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
     @Assisted private val handle: SavedStateHandle
 ) : ViewModel(), CatalogItemPresenter {
-    private val _state = MutableStateFlow(CatalogItem(0, "", ""))
-    override val state: StateFlow<CatalogItem> = _state
-    private var translationJob: Job? = null
-    private var observeJob: Job? = null
+    private val articleIds = MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
+    private val translationRequests = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+
+    private val articleState = articleIds
+        .flatMapLatest { id -> repo.article(id) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val articles = articleState.filterNotNull()
+
+    override val state: StateFlow<CatalogItem> = articles
+        .map { entity ->
+            val summary = entity.summaryTranslated ?: entity.summaryOriginal
+            CatalogItem(entity.id, entity.title, summary)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = CatalogItem(0, "", "")
+        )
 
     init {
         println("CatalogItemViewModel created vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
+        translationRequests
+            .onEach { id -> repo.translateArticle(id) }
+            .launchIn(viewModelScope)
+
+        articles
+            .distinctUntilChanged { old, new ->
+                old.id == new.id && old.summaryTranslated == new.summaryTranslated
+            }
+            .onEach { entity ->
+                if (entity.summaryTranslated == null) {
+                    translationRequests.emit(entity.id)
+                }
+            }
+            .launchIn(viewModelScope)
     }
     override fun onCleared() {
         super.onCleared()
@@ -49,26 +85,13 @@ class CatalogItemViewModel @AssistedInject constructor(
     }
 
     override fun initOnce(params: Int) {
-        if (observeJob != null) return
-        observeJob = viewModelScope.launch {
-            repo.article(params).collect { entity ->
-                if (entity == null) return@collect
-                val summary = entity.summaryTranslated ?: entity.summaryOriginal
-                _state.value = CatalogItem(entity.id, entity.title, summary)
-                if (entity.summaryTranslated == null && translationJob?.isActive != true) {
-                    translationJob = launch {
-                        repo.translateArticle(entity.id)
-                    }.also { job ->
-                        job.invokeOnCompletion { if (translationJob === job) translationJob = null }
-                    }
-                }
-            }
-        }
+        articleIds.tryEmit(params)
     }
 
     override fun onClick() {
-        bridge.onItemClick(_state.value.id)
-        screenBus.send("Item ${_state.value.id} clicked at ${System.currentTimeMillis()}")
+        val item = state.value
+        bridge.onItemClick(item.id)
+        screenBus.send("Item ${item.id} clicked at ${System.currentTimeMillis()}")
     }
 
     @AssistedFactory
