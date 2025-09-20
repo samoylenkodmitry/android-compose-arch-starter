@@ -15,6 +15,7 @@ data class ArticleEntity(
   @PrimaryKey val id: Int,
   val title: String,
   val summary: String,
+  val summaryLanguage: String?,
   val content: String,
   val sourceUrl: String,
   val originalWord: String,
@@ -29,13 +30,16 @@ interface ArticleDao {
   fun getArticles(): Flow<List<ArticleEntity>>
 
   @Query("SELECT * FROM articles WHERE id = :id")
+  fun observeArticle(id: Int): Flow<ArticleEntity?>
+
+  @Query("SELECT * FROM articles WHERE id = :id")
   suspend fun getArticle(id: Int): ArticleEntity?
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insert(article: ArticleEntity)
 }
 
-@Database(entities = [ArticleEntity::class], version = 2)
+@Database(entities = [ArticleEntity::class], version = 3)
 abstract class AppDatabase : RoomDatabase() {
   abstract fun articleDao(): ArticleDao
 }

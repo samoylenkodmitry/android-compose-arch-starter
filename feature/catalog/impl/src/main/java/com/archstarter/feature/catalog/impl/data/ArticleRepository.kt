@@ -39,6 +39,8 @@ interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
   suspend fun refresh()
   suspend fun article(id: Int): ArticleEntity?
+  fun articleFlow(id: Int): Flow<ArticleEntity?>
+  suspend fun translateSummary(article: ArticleEntity): String?
   suspend fun translate(word: String): String?
 }
 
@@ -73,19 +75,7 @@ class ArticleRepository @Inject constructor(
     val summarySourceCode = summaryLanguageCode ?: contentLanguageCode ?: nativeCode
     val contentSourceCode = contentLanguageCode ?: summaryLanguageCode ?: nativeCode
 
-    val summarySourceLanguage = languageDisplayName(summarySourceCode)
     val contentSourceLanguage = languageDisplayName(contentSourceCode)
-
-    val translatedSummary = if (summarySourceCode == nativeCode) {
-      summaryText
-    } else {
-      translateWithFallback(
-        word = summaryText,
-        langPair = "$summarySourceCode|$nativeCode",
-        sourceLanguage = summarySourceLanguage,
-        targetLanguage = nativeLanguage
-      ) ?: return
-    }
 
     val translatedContent = if (contentSourceCode == nativeCode) {
       summary.extract
@@ -128,7 +118,8 @@ class ArticleRepository @Inject constructor(
     val entity = ArticleEntity(
       id = summary.pageid,
       title = summary.title,
-      summary = translatedSummary,
+      summary = summaryText,
+      summaryLanguage = summarySourceCode,
       content = replaced,
       sourceUrl = summary.contentUrls.desktop.page,
       originalWord = nativeWord,
@@ -140,6 +131,28 @@ class ArticleRepository @Inject constructor(
   }
 
   override suspend fun article(id: Int): ArticleEntity? = dao.getArticle(id)
+
+  override fun articleFlow(id: Int): Flow<ArticleEntity?> = dao.observeArticle(id)
+
+  override suspend fun translateSummary(article: ArticleEntity): String? {
+    val text = article.summary
+    if (text.isBlank()) return text
+
+    val state = settings.state.value
+    val nativeLanguage = state.nativeLanguage
+    val nativeCode = languageCodes[nativeLanguage] ?: return null
+    val sourceCode = article.summaryLanguage?.takeIf { it.isNotBlank() }
+      ?: detectLanguageCode(text)
+      ?: nativeCode
+    if (sourceCode == nativeCode) return text
+    val sourceLanguage = languageDisplayName(sourceCode)
+    return translateWithFallback(
+      word = text,
+      langPair = "$sourceCode|$nativeCode",
+      sourceLanguage = sourceLanguage,
+      targetLanguage = nativeLanguage
+    )
+  }
 
   override suspend fun translate(word: String): String? {
     val state = settings.state.value

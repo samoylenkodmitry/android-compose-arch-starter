@@ -17,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,6 +43,7 @@ class ArticleRepositoryTest {
   private class FakeArticleDao : ArticleDao {
     private val data = MutableStateFlow<List<ArticleEntity>>(emptyList())
     override fun getArticles(): Flow<List<ArticleEntity>> = data
+    override fun observeArticle(id: Int): Flow<ArticleEntity?> = data.map { list -> list.firstOrNull { it.id == id } }
     override suspend fun getArticle(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
     override suspend fun insert(article: ArticleEntity) { data.value = data.value + article }
     val inserted: List<ArticleEntity> get() = data.value
@@ -63,6 +65,43 @@ class ArticleRepositoryTest {
     suspend fun updateLearning(language: String) {
       stateFlow.value = stateFlow.value.copy(learningLanguage = language)
     }
+  }
+
+  @Test
+  fun translateSummaryUsesStoredLanguageCode() = runTest {
+    val dao = FakeArticleDao()
+    var usedLangPair: String? = null
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "" },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          usedLangPair = langPair
+          return TranslationResponse(TranslationData("hola"))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = FakeSettingsRepository(),
+      dao = dao,
+    )
+
+    val article = ArticleEntity(
+      id = 1,
+      title = "Title",
+      summary = "Bonjour",
+      summaryLanguage = "fr",
+      content = "Content",
+      sourceUrl = "url",
+      originalWord = "Orig",
+      translatedWord = "Trans",
+      ipa = null,
+      createdAt = 0L,
+    )
+
+    val translation = repo.translateSummary(article)
+
+    assertEquals("fr|en", usedLangPair)
+    assertEquals("hola", translation)
   }
 
   @Test
@@ -168,10 +207,11 @@ class ArticleRepositoryTest {
 
     repo.refresh()
 
-    assertEquals(listOf("fr|en", "fr|en", "en|es"), calls.map { it.first })
+    assertEquals(listOf("fr|en", "en|es"), calls.map { it.first })
     assertEquals(1, dao.inserted.size)
     val entity = dao.inserted.first()
-    assertEquals("Alpha Alpha Alpha", entity.summary)
+    assertEquals("Résumé", entity.summary)
+    assertEquals("fr", entity.summaryLanguage)
     assertEquals("Alpha (Beta) Alpha Alpha", entity.content)
     assertEquals("Alpha", entity.originalWord)
     assertEquals("Beta", entity.translatedWord)
@@ -213,6 +253,7 @@ class ArticleRepositoryTest {
     assertEquals(listOf("fr|en", "en|es"), calls)
     val entity = dao.inserted.first()
     assertEquals("Hello there", entity.summary)
+    assertEquals("en", entity.summaryLanguage)
   }
 
   @Test
