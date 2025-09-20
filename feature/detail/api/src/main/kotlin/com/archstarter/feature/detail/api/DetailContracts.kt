@@ -22,4 +22,5 @@ data class DetailState(
 interface DetailPresenter : ParamInit<Int> {
   val state: StateFlow<DetailState>
   fun translate(word: String)
+  fun onSourceClick(url: String)
 }
