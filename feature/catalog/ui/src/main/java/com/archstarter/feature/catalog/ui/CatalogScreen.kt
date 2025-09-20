@@ -136,57 +136,38 @@ fun CatalogScreen(
     }
   }
   val listBottomPadding = 32.dp + bottomControlsHeight
+  val glassRects = remember(centerGlassRect, settingsGlassRect, refreshGlassRect) {
+    listOfNotNull(centerGlassRect, settingsGlassRect, refreshGlassRect)
+  }
 
   Box(Modifier.fillMaxSize()) {
-    Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(horizontal = 16.dp, vertical = 16.dp)
+    LiquidGlassRectOverlay(
+      rects = glassRects,
+      modifier = Modifier.fillMaxSize()
     ) {
-      Text("Catalog", style = MaterialTheme.typography.titleLarge)
-      Spacer(Modifier.height(8.dp))
-      Box(
+      Column(
         modifier = Modifier
-          .weight(1f)
-          .onGloballyPositioned { coords -> viewportOffset = coords.positionInRoot() }
-          .onSizeChanged { viewportSize = it }
+          .fillMaxSize()
+          .padding(horizontal = 16.dp, vertical = 16.dp)
       ) {
-        LazyColumn(
-          state = listState,
-          contentPadding = PaddingValues(bottom = listBottomPadding),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
+        Text("Catalog", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .onGloballyPositioned { coords -> viewportOffset = coords.positionInRoot() }
+            .onSizeChanged { viewportSize = it }
         ) {
-          items(state.items, key = { it }) { id ->
-            CatalogItemCard(id = id)
+          LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(bottom = listBottomPadding),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            items(state.items, key = { it }) { id ->
+              CatalogItemCard(id = id)
+            }
           }
         }
-      }
-    }
-
-    centerGlassRect?.let { rect ->
-      LiquidGlassRectOverlay(
-        rect = rect,
-        modifier = Modifier.fillMaxSize()
-      ) {
-        Box(Modifier.fillMaxSize())
-      }
-    }
-
-    settingsGlassRect?.let { rect ->
-      LiquidGlassRectOverlay(
-        rect = rect,
-        modifier = Modifier.fillMaxSize()
-      ) {
-        Box(Modifier.fillMaxSize())
-      }
-    }
-
-    refreshGlassRect?.let { rect ->
-      LiquidGlassRectOverlay(
-        rect = rect,
-        modifier = Modifier.fillMaxSize()
-      ) {
-        Box(Modifier.fillMaxSize())
       }
     }
 
