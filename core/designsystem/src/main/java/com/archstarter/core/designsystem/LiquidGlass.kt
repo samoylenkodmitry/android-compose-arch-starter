@@ -92,9 +92,9 @@ half4 main(float2 coord) {
     float blurPx = clamp(u_blurRadius, 0.0, 80.0);
     float2 clampMin = float2(0.5);
     float2 clampMax = u_size - float2(0.5);
-    float2 baseCoord = clamp(coord, clampMin, clampMax);
     half4 base = refr;
     if (blurPx > 0.0) {
+        float2 baseCoord = clamp(sampleCoord, clampMin, clampMax);
         float sampleStep = max(1.0, blurPx * 0.35);
         float diagStep = sampleStep * 0.70710677;
         half4 blur = half4(0.0);
