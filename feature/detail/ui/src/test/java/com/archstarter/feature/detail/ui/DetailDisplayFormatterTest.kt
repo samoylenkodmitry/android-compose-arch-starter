@@ -25,10 +25,16 @@ class DetailDisplayFormatterTest {
     val wordBounds = display.bounds[1]
     val segment = display.text.substring(wordBounds.start, wordBounds.end)
     val padCount = translations.getValue("beta").length - "beta".length
+    val leadingPads = segment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val trailingPads = segment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
 
     assertTrue(padCount > 0)
     assertEquals("beta".length + padCount, segment.length)
-    assertTrue(segment.takeLast(padCount).all { it == DETAIL_DISPLAY_PAD_CHAR })
+    assertEquals(padCount, leadingPads + trailingPads)
+    assertTrue(abs(leadingPads - trailingPads) <= 1)
+    assertTrue(leadingPads > 0)
+    assertTrue(trailingPads > 0)
+    assertEquals("beta", segment.substring(leadingPads, segment.length - trailingPads))
   }
 
   @Test
@@ -60,9 +66,13 @@ class DetailDisplayFormatterTest {
     val highlightSegment = highlighted.text.substring(highlightBounds.start, highlightBounds.end)
     val expectedPad = "Gamma".length - translations.getValue("gamma").length
 
-    assertTrue(highlightSegment.startsWith("go"))
+    val leadingPads = highlightSegment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val trailingPads = highlightSegment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+
     assertEquals("Gamma".length, highlightSegment.length)
-    assertTrue(highlightSegment.takeLast(expectedPad).all { it == DETAIL_DISPLAY_PAD_CHAR })
+    assertEquals(expectedPad, leadingPads + trailingPads)
+    assertTrue(abs(leadingPads - trailingPads) <= 1)
+    assertEquals("go", highlightSegment.substring(leadingPads, highlightSegment.length - trailingPads))
   }
 
   @Test
@@ -100,8 +110,19 @@ class DetailDisplayFormatterTest {
       "Measured widths differ: base=$baseWidth highlight=$highlightWidth",
       abs(baseWidth - highlightWidth) < 0.01f
     )
-    assertTrue(highlightSegment.startsWith("WWW"))
-    assertTrue(baseSegment.contains(DETAIL_DISPLAY_PAD_CHAR))
+    val baseLeadingPads = baseSegment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val baseTrailingPads = baseSegment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val baseCore = baseSegment.substring(baseLeadingPads, baseSegment.length - baseTrailingPads)
+    val highlightLeadingPads = highlightSegment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val highlightTrailingPads = highlightSegment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val highlightCore = highlightSegment.substring(highlightLeadingPads, highlightSegment.length - highlightTrailingPads)
+
+    assertEquals("WWW", highlightCore)
+    assertEquals("ill", baseCore)
+    assertEquals(baseLeadingPads + baseTrailingPads + baseCore.length, baseSegment.length)
+    assertTrue(abs(baseLeadingPads - baseTrailingPads) <= 1)
+    assertTrue(baseLeadingPads > 0)
+    assertTrue(baseTrailingPads > 0)
   }
 }
 

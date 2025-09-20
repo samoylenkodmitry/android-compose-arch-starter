@@ -296,11 +296,35 @@ internal fun buildDisplayContent(
       val cachedTranslation = translations[key]?.takeIf { it.isNotEmpty() }
       val isHighlighted = highlightIndex != null && translation != null && entry.index == highlightIndex
       val highlightedTranslation = translation?.takeIf { isHighlighted && it.isNotEmpty() }
-      val baseVariant = entry.prefix + normalized + entry.suffix
       val variantCandidates = buildList {
-        add(VariantCandidate(VariantKind.BASE, baseVariant))
-        cachedTranslation?.let { add(VariantCandidate(VariantKind.CACHED, entry.prefix + it + entry.suffix)) }
-        highlightedTranslation?.let { add(VariantCandidate(VariantKind.HIGHLIGHT, entry.prefix + it + entry.suffix)) }
+        add(
+          VariantCandidate(
+            kind = VariantKind.BASE,
+            prefix = entry.prefix,
+            core = normalized,
+            suffix = entry.suffix,
+          )
+        )
+        cachedTranslation?.let { translation ->
+          add(
+            VariantCandidate(
+              kind = VariantKind.CACHED,
+              prefix = entry.prefix,
+              core = translation,
+              suffix = entry.suffix,
+            )
+          )
+        }
+        highlightedTranslation?.let { translation ->
+          add(
+            VariantCandidate(
+              kind = VariantKind.HIGHLIGHT,
+              prefix = entry.prefix,
+              core = translation,
+              suffix = entry.suffix,
+            )
+          )
+        }
       }
       val paddedVariants = padVariantsToWidth(variantCandidates, measureWidth)
       when {
@@ -324,9 +348,23 @@ internal fun buildDisplayContent(
 
 private enum class VariantKind { BASE, CACHED, HIGHLIGHT }
 
-private data class VariantCandidate(val kind: VariantKind, val raw: String)
+private data class VariantCandidate(
+  val kind: VariantKind,
+  val prefix: String,
+  val core: String,
+  val suffix: String,
+) {
+  val text: String = prefix + core + suffix
+}
 
-private data class VariantResult(val text: String, val width: Float)
+private data class VariantResult(
+  val prefix: String,
+  val core: String,
+  val suffix: String,
+  val width: Float,
+) {
+  val text: String = prefix + core + suffix
+}
 
 private fun padVariantsToWidth(
   variants: List<VariantCandidate>,
@@ -336,8 +374,14 @@ private fun padVariantsToWidth(
   val results = LinkedHashMap<VariantKind, VariantResult>(variants.size)
   var targetWidth = 0f
   for (variant in variants) {
-    val width = measureWidth(variant.raw)
-    results[variant.kind] = VariantResult(variant.raw, width)
+    val text = variant.text
+    val width = measureWidth(text)
+    results[variant.kind] = VariantResult(
+      prefix = variant.prefix,
+      core = variant.core,
+      suffix = variant.suffix,
+      width = width,
+    )
     if (width > targetWidth) {
       targetWidth = width
     }
@@ -348,7 +392,7 @@ private fun padVariantsToWidth(
     updated = false
     for ((kind, result) in results) {
       if (result.width + PAD_WIDTH_EPSILON >= targetWidth) continue
-      val padded = padToWidth(result.text, targetWidth, measureWidth)
+      val padded = padToWidth(result, targetWidth, measureWidth)
       if (padded.width > result.width + PAD_WIDTH_EPSILON) {
         results[kind] = padded
         updated = true
@@ -365,35 +409,41 @@ private fun padVariantsToWidth(
 }
 
 private fun padToWidth(
-  text: String,
+  variant: VariantResult,
   targetWidth: Float,
   measureWidth: (String) -> Float,
 ): VariantResult {
-  if (text.isEmpty()) return VariantResult(text, 0f)
-  var result = text
-  var width = measureWidth(result)
+  if (variant.text.isEmpty()) return variant
+  var width = variant.width
   if (width + PAD_WIDTH_EPSILON >= targetWidth) {
-    return VariantResult(result, width)
+    return variant
   }
-  val builder = StringBuilder(result.length + 8)
-  builder.append(result)
+  val builder = StringBuilder(variant.core.length + 8)
+  builder.append(variant.core)
   var lastWidth = width
   var padCount = 0
+  var leftPads = 0
+  var rightPads = 0
   while (width + PAD_WIDTH_EPSILON < targetWidth && padCount < MAX_PADDING_PER_VARIANT) {
-    builder.append(DETAIL_DISPLAY_PAD_CHAR)
-    val padded = builder.toString()
-    val newWidth = measureWidth(padded)
-    if (newWidth <= lastWidth + MIN_WIDTH_DELTA) {
-      result = padded
-      width = newWidth
-      break
+    if (leftPads <= rightPads) {
+      builder.insert(0, DETAIL_DISPLAY_PAD_CHAR)
+      leftPads++
+    } else {
+      builder.append(DETAIL_DISPLAY_PAD_CHAR)
+      rightPads++
     }
-    result = padded
+    val paddedCore = builder.toString()
+    val paddedText = variant.prefix + paddedCore + variant.suffix
+    val newWidth = measureWidth(paddedText)
+    if (newWidth <= lastWidth + MIN_WIDTH_DELTA) {
+      return VariantResult(variant.prefix, paddedCore, variant.suffix, newWidth)
+    }
     width = newWidth
     lastWidth = newWidth
     padCount++
   }
-  return VariantResult(result, width)
+  val finalCore = builder.toString()
+  return VariantResult(variant.prefix, finalCore, variant.suffix, width)
 }
 
 private fun defaultMeasureWidth(text: String): Float = text.length.toFloat()
