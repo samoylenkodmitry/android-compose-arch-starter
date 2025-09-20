@@ -1,6 +1,8 @@
 package com.archstarter.feature.detail.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -14,19 +16,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.awaitFirstDown
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
@@ -34,12 +35,11 @@ import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.max
 import kotlin.math.min
 import java.util.LinkedHashMap
@@ -53,6 +53,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val state by p.state.collectAsStateWithLifecycle()
   val density = LocalDensity.current
   val hapticFeedback = LocalHapticFeedback.current
+  val viewConfiguration = LocalViewConfiguration.current
   val highlightPaddingX = 12.dp
   val highlightPaddingY = 6.dp
   val highlightPaddingXPx = with(density) { highlightPaddingX.toPx() }
@@ -172,79 +173,96 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
             words,
             highlightPaddingXPx,
             highlightPaddingYPx,
-            longPressPointerOffsetPx
+            longPressPointerOffsetPx,
+            viewConfiguration
           ) {
-          awaitPointerEventScope {
-            var offsetActivated = false
-            var lastRawPosition: Offset? = null
-            var longPressJob: Job? = null
+            awaitEachGesture {
+              var offsetActivated = false
+              var lastRawPosition: Offset? = null
 
-            fun process(rawPosition: Offset) {
-              val layoutResult = layout ?: return
-              if (displayContent.isEmpty()) return
-              val adjustedPosition = if (offsetActivated) {
-                rawPosition.copy(y = max(0f, rawPosition.y - longPressPointerOffsetPx))
-              } else {
-                rawPosition
+              fun process(rawPosition: Offset) {
+                val layoutResult = layout ?: return
+                if (displayContent.isEmpty()) return
+                val adjustedPosition = if (offsetActivated) {
+                  rawPosition.copy(y = max(0f, rawPosition.y - longPressPointerOffsetPx))
+                } else {
+                  rawPosition
+                }
+                val textLength = displayContent.length
+                val rawOffset = layoutResult
+                  .getOffsetForPosition(adjustedPosition)
+                  .coerceIn(0, textLength)
+                val searchOffset = if (rawOffset == textLength) rawOffset - 1 else rawOffset
+                if (searchOffset < 0) return
+                val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) } ?: return
+                val entry = words.getOrNull(wordBounds.index) ?: return
+                val normalized = entry.normalized
+                if (normalized.isBlank()) return
+                layoutResult.toLiquidRect(
+                  wordBounds.textBounds,
+                  highlightPaddingXPx,
+                  highlightPaddingYPx
+                )?.let { targetLocalRect = it }
+                if (highlightWordIndex != wordBounds.index) {
+                  highlightWordIndex = wordBounds.index
+                }
+                if (currentNormalizedWord != normalized) {
+                  currentNormalizedWord = normalized
+                  p.translate(normalized)
+                }
               }
-              val textLength = displayContent.length
-              val rawOffset = layoutResult
-                .getOffsetForPosition(adjustedPosition)
-                .coerceIn(0, textLength)
-              val searchOffset = if (rawOffset == textLength) rawOffset - 1 else rawOffset
-              if (searchOffset < 0) return
-              val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) } ?: return
-              val entry = words.getOrNull(wordBounds.index) ?: return
-              val normalized = entry.normalized
-              if (normalized.isBlank()) return
-              layoutResult.toLiquidRect(
-                wordBounds.textBounds,
-                highlightPaddingXPx,
-                highlightPaddingYPx
-              )?.let { targetLocalRect = it }
-              if (highlightWordIndex != wordBounds.index) {
-                highlightWordIndex = wordBounds.index
-              }
-              if (currentNormalizedWord != normalized) {
-                currentNormalizedWord = normalized
-                p.translate(normalized)
-              }
-            }
 
-            while (true) {
               val down = awaitFirstDown(requireUnconsumed = false)
-              down.consume()
               offsetActivated = false
               lastRawPosition = down.position
               process(down.position)
-              longPressJob?.cancel()
-              longPressJob = launch {
-                delay(1_000L)
-                offsetActivated = true
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                lastRawPosition?.let { process(it) }
-              }
+              val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+              val longPressDeadline = down.uptimeMillis + longPressTimeout
+              var longPressTriggered = false
+              var lastEventTime = down.uptimeMillis
+
               try {
                 while (true) {
-                  val event = awaitPointerEvent()
+                  val timeRemaining = if (longPressTriggered) {
+                    null
+                  } else {
+                    (longPressDeadline - lastEventTime).coerceAtLeast(0L)
+                  }
+                  val event = if (timeRemaining == null) {
+                    awaitPointerEvent()
+                  } else {
+                    withTimeoutOrNull(timeRemaining) { awaitPointerEvent() }
+                  }
+
+                  if (event == null) {
+                    if (!longPressTriggered) {
+                      longPressTriggered = true
+                      offsetActivated = true
+                      hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                      lastRawPosition?.let { process(it) }
+                    }
+                    continue
+                  }
+
                   val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                  lastEventTime = change.uptimeMillis
                   if (!change.pressed) {
-                    change.consume()
                     break
                   }
                   lastRawPosition = change.position
+                  if (!longPressTriggered && change.uptimeMillis >= longPressDeadline) {
+                    longPressTriggered = true
+                    offsetActivated = true
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                  }
                   process(change.position)
-                  change.consume()
                 }
               } finally {
-                longPressJob?.cancel()
-                longPressJob = null
                 offsetActivated = false
                 lastRawPosition = null
               }
             }
           }
-        }
       )
     }
     if (state.ipa != null) {
