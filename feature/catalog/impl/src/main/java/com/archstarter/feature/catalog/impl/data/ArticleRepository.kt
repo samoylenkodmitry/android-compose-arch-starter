@@ -20,6 +20,7 @@ import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import javax.inject.Inject
+import com.archstarter.feature.settings.api.SettingsStateProvider
 import com.archstarter.feature.settings.api.languageCodes
 import com.archstarter.feature.settings.impl.data.SettingsRepository
 import java.util.Locale
@@ -47,7 +48,7 @@ class ArticleRepository @Inject constructor(
   private val summarizer: SummarizerService,
   private val translator: TranslatorService,
   private val dictionary: DictionaryService,
-  private val settings: SettingsRepository,
+  private val settings: SettingsStateProvider,
   private val dao: ArticleDao
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
@@ -66,28 +67,33 @@ class ArticleRepository @Inject constructor(
     val nativeCode = languageCodes[nativeLanguage] ?: return
     val learningCode = languageCodes[learningLanguage] ?: return
 
-    val detectedCode = detectLanguageCode(summary.extract)
-    val sourceCode = detectedCode ?: nativeCode
-    val sourceLanguage = languageDisplayName(sourceCode)
+    val summaryLanguageCode = detectLanguageCode(summaryText)
+    val contentLanguageCode = detectLanguageCode(summary.extract)
 
-    val translatedSummary = if (sourceCode == nativeCode) {
+    val summarySourceCode = summaryLanguageCode ?: contentLanguageCode ?: nativeCode
+    val contentSourceCode = contentLanguageCode ?: summaryLanguageCode ?: nativeCode
+
+    val summarySourceLanguage = languageDisplayName(summarySourceCode)
+    val contentSourceLanguage = languageDisplayName(contentSourceCode)
+
+    val translatedSummary = if (summarySourceCode == nativeCode) {
       summaryText
     } else {
       translateWithFallback(
         word = summaryText,
-        langPair = "$sourceCode|$nativeCode",
-        sourceLanguage = sourceLanguage,
+        langPair = "$summarySourceCode|$nativeCode",
+        sourceLanguage = summarySourceLanguage,
         targetLanguage = nativeLanguage
       ) ?: return
     }
 
-    val translatedContent = if (sourceCode == nativeCode) {
+    val translatedContent = if (contentSourceCode == nativeCode) {
       summary.extract
     } else {
       translateWithFallback(
         word = summary.extract,
-        langPair = "$sourceCode|$nativeCode",
-        sourceLanguage = sourceLanguage,
+        langPair = "$contentSourceCode|$nativeCode",
+        sourceLanguage = contentSourceLanguage,
         targetLanguage = nativeLanguage
       ) ?: return
     }

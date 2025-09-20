@@ -25,6 +25,10 @@ data class SettingsState(
     val learningLanguage: String = "Spanish"
 )
 
+interface SettingsStateProvider {
+    val state: StateFlow<SettingsState>
+}
+
 interface SettingsPresenter: ParamInit<Unit> {
     val state: StateFlow<SettingsState>
     fun onNativeSelected(language: String)
