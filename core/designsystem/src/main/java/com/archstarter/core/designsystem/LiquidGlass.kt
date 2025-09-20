@@ -2,7 +2,6 @@ package com.archstarter.core.designsystem
 
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
-import android.graphics.Shader
 import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -46,6 +45,7 @@ uniform float  u_ri;
 uniform float  u_profile;
 uniform float  u_highlight;
 uniform float4 u_tintColor;
+uniform float  u_blurRadius;
 
 float sdRoundRect(float2 p, float2 halfWH, float r) {
     float2 q = abs(p) - (halfWH - float2(r));
@@ -89,7 +89,28 @@ half4 main(float2 coord) {
     float rim = pow(1.0 - x, 3.0);
     half specA = half(clamp(u_highlight * rim, 0.0, 1.0));
     half4 spec = half4(1.0, 1.0, 1.0, specA);
+    float blurPx = clamp(u_blurRadius, 0.0, 80.0);
+    float2 clampMin = float2(0.5);
+    float2 clampMax = u_size - float2(0.5);
+    float2 baseCoord = clamp(coord, clampMin, clampMax);
     half4 base = refr;
+    if (blurPx > 0.0) {
+        float sampleStep = max(1.0, blurPx * 0.35);
+        float diagStep = sampleStep * 0.70710677;
+        half4 blur = half4(0.0);
+        blur += background.eval(baseCoord);
+        blur += background.eval(clamp(baseCoord + float2( sampleStep, 0.0), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2(-sampleStep, 0.0), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2(0.0,  sampleStep), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2(0.0, -sampleStep), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2( diagStep,  diagStep), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2(-diagStep,  diagStep), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2( diagStep, -diagStep), clampMin, clampMax));
+        blur += background.eval(clamp(baseCoord + float2(-diagStep, -diagStep), clampMin, clampMax));
+        blur *= 1.0 / 9.0;
+        float blurMix = clamp(0.3 + blurPx / 90.0, 0.3, 0.75);
+        base = mix(base, blur, blurMix);
+    }
     half4 outc = base + spec * spec.a * 0.85;
     half tintA = half(clamp(u_tintColor.w, 0.0, 1.0));
     half3 tintRgb = half3(u_tintColor.rgb);
@@ -269,20 +290,13 @@ private fun createRuntimeEffect(
             runtimeRect.tintColor.blue,
             runtimeRect.tintColor.alpha,
         )
+        shader.setFloatUniform("u_blurRadius", runtimeRect.blurRadiusPx)
 
-        val blurEffect = runtimeRect.blurRadiusPx.takeIf { it > 0f }?.let { radius ->
-            RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
-        }
         val effect = RenderEffect.createRuntimeShaderEffect(shader, "background")
-        val combinedEffect = if (blurEffect != null) {
-            RenderEffect.createChainEffect(effect, blurEffect)
-        } else {
-            effect
-        }
         chainedEffect = if (chainedEffect == null) {
-            combinedEffect
+            effect
         } else {
-            RenderEffect.createChainEffect(combinedEffect, chainedEffect)
+            RenderEffect.createChainEffect(effect, chainedEffect)
         }
     }
 
