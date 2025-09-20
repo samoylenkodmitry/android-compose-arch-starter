@@ -93,23 +93,27 @@ half4 main(float2 coord) {
     float2 clampMin = float2(0.5);
     float2 clampMax = u_size - float2(0.5);
     half4 base = refr;
-    if (blurPx > 0.0) {
+    if (blurPx > 0.001) {
         float2 baseCoord = clamp(sampleCoord, clampMin, clampMax);
-        float sampleStep = max(1.0, blurPx * 0.35);
-        float diagStep = sampleStep * 0.70710677;
-        half4 blur = half4(0.0);
-        blur += background.eval(baseCoord);
-        blur += background.eval(clamp(baseCoord + float2( sampleStep, 0.0), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2(-sampleStep, 0.0), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2(0.0,  sampleStep), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2(0.0, -sampleStep), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2( diagStep,  diagStep), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2(-diagStep,  diagStep), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2( diagStep, -diagStep), clampMin, clampMax));
-        blur += background.eval(clamp(baseCoord + float2(-diagStep, -diagStep), clampMin, clampMax));
-        blur *= 1.0 / 9.0;
-        float blurMix = clamp(0.3 + blurPx / 90.0, 0.3, 0.75);
-        base = mix(base, blur, blurMix);
+        float sampleStep = max(0.5, blurPx * 0.4);
+        float diagStep = sampleStep * 0.70710678;
+        half4 center = background.eval(baseCoord);
+        half4 axisSum = half4(0.0);
+        axisSum += background.eval(clamp(baseCoord + float2( sampleStep, 0.0), clampMin, clampMax));
+        axisSum += background.eval(clamp(baseCoord + float2(-sampleStep, 0.0), clampMin, clampMax));
+        axisSum += background.eval(clamp(baseCoord + float2(0.0,  sampleStep), clampMin, clampMax));
+        axisSum += background.eval(clamp(baseCoord + float2(0.0, -sampleStep), clampMin, clampMax));
+        half4 diagSum = half4(0.0);
+        diagSum += background.eval(clamp(baseCoord + float2( diagStep,  diagStep), clampMin, clampMax));
+        diagSum += background.eval(clamp(baseCoord + float2(-diagStep,  diagStep), clampMin, clampMax));
+        diagSum += background.eval(clamp(baseCoord + float2( diagStep, -diagStep), clampMin, clampMax));
+        diagSum += background.eval(clamp(baseCoord + float2(-diagStep, -diagStep), clampMin, clampMax));
+        half4 blur = center * 4.0;
+        blur += axisSum * 2.0;
+        blur += diagSum;
+        blur *= half(1.0 / 16.0);
+        float blurStrength = clamp(blurPx / (blurPx + 8.0), 0.0, 0.85);
+        base = mix(base, blur, blurStrength);
     }
     half4 outc = base + spec * spec.a * 0.85;
     half tintA = half(clamp(u_tintColor.w, 0.0, 1.0));
