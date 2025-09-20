@@ -29,22 +29,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
 
-private const val MAX_RUNTIME_SHADER_RECTS = 6
-
-private val LIQUID_GLASS_AGSL = """
+private const val LIQUID_GLASS_AGSL = """
 uniform shader background;
 
-const int MAX_RECTS = $MAX_RUNTIME_SHADER_RECTS;
-
 uniform float2 u_size;
+uniform float2 u_center;
+uniform float2 u_rectSize;
 uniform float  u_radius;
 uniform float  u_bezel;
 uniform float  u_scale;
 uniform float  u_ri;
 uniform float  u_profile;
 uniform float  u_highlight;
-uniform float4 u_rectData[MAX_RECTS];
-uniform int    u_rectCount;
 
 float sdRoundRect(float2 p, float2 halfWH, float r) {
     float2 q = abs(p) - (halfWH - float2(r));
@@ -64,43 +60,12 @@ float dHeightDx(float x, float profile) {
 }
 
 half4 main(float2 coord) {
-    if (u_rectCount <= 0) {
+    float2 p = coord - u_center;
+    float2 halfWH = 0.5 * u_rectSize;
+    float sdf = sdRoundRect(p, halfWH, u_radius);
+    if (sdf > 0.0) {
         return background.eval(coord);
     }
-
-    float minSdf = 1e9;
-    float2 activeCenter = float2(0.0);
-    float2 activeRectSize = float2(0.0);
-    int activeIndex = -1;
-
-    for (int i = 0; i < MAX_RECTS; ++i) {
-        if (i >= u_rectCount) {
-            break;
-        }
-        float4 data = u_rectData[i];
-        float2 center = float2(data.x, data.y);
-        float2 rectSize = float2(data.z, data.w);
-        if (rectSize.x <= 0.0 || rectSize.y <= 0.0) {
-            continue;
-        }
-        float2 p = coord - center;
-        float2 halfWH = 0.5 * rectSize;
-        float sdf = sdRoundRect(p, halfWH, u_radius);
-        if (sdf < minSdf) {
-            minSdf = sdf;
-            activeCenter = center;
-            activeRectSize = rectSize;
-            activeIndex = i;
-        }
-    }
-
-    if (activeIndex < 0 || minSdf > 0.0) {
-        return background.eval(coord);
-    }
-
-    float2 p = coord - activeCenter;
-    float2 halfWH = 0.5 * activeRectSize;
-    float sdf = minSdf;
     float eps = 1.0;
     float sx = sdRoundRect(p + float2(eps, 0.0), halfWH, u_radius) -
                sdRoundRect(p - float2(eps, 0.0), halfWH, u_radius);
@@ -146,7 +111,7 @@ data class LiquidGlassRect(
 
 @Composable
 fun LiquidGlassRectOverlay(
-    rects: List<LiquidGlassRect>,
+    rect: LiquidGlassRect?,
     modifier: Modifier = Modifier,
     spec: LiquidGlassSpec = LiquidGlassSpec(),
     content: @Composable BoxScope.() -> Unit,
@@ -156,48 +121,30 @@ fun LiquidGlassRectOverlay(
     val shader = remember {
         if (Build.VERSION.SDK_INT >= 33) RuntimeShader(LIQUID_GLASS_AGSL) else null
     }
-    val rectsPx = remember(rects, density) {
-        rects.mapNotNull { rect ->
-            rect.takeUnless { it.isEmpty }?.toRect(density)
-        }
-    }
-    val limitedRectsPx = remember(rectsPx) {
-        rectsPx.take(MAX_RUNTIME_SHADER_RECTS)
+    val rectPx = remember(rect, density) {
+        rect?.takeUnless { it.isEmpty }?.toRect(density)
     }
 
-    LaunchedEffect(limitedRectsPx, containerSize, spec, density, shader) {
+    LaunchedEffect(rectPx, containerSize, spec, density, shader) {
         if (Build.VERSION.SDK_INT < 33) return@LaunchedEffect
         val runtimeShader = shader ?: return@LaunchedEffect
-        if (limitedRectsPx.isEmpty()) return@LaunchedEffect
+        val r = rectPx ?: return@LaunchedEffect
         if (containerSize.width <= 0f || containerSize.height <= 0f) return@LaunchedEffect
         val corner = with(density) { spec.cornerRadius.toPx() }
         val bezel = with(density) { spec.bezelWidth.toPx() }
         runtimeShader.setFloatUniform("u_size", containerSize.width, containerSize.height)
+        runtimeShader.setFloatUniform("u_center", r.center.x, r.center.y)
+        runtimeShader.setFloatUniform("u_rectSize", r.width, r.height)
         runtimeShader.setFloatUniform("u_radius", corner)
         runtimeShader.setFloatUniform("u_bezel", max(1f, bezel))
         runtimeShader.setFloatUniform("u_scale", spec.displacementScalePx)
         runtimeShader.setFloatUniform("u_ri", spec.refractiveIndex)
         runtimeShader.setFloatUniform("u_profile", spec.profile)
         runtimeShader.setFloatUniform("u_highlight", spec.highlight)
-        runtimeShader.setIntUniform("u_rectCount", limitedRectsPx.size)
-        for (i in 0 until MAX_RUNTIME_SHADER_RECTS) {
-            if (i < limitedRectsPx.size) {
-                val rect = limitedRectsPx[i]
-                runtimeShader.setFloatUniform(
-                    "u_rectData[$i]",
-                    rect.center.x,
-                    rect.center.y,
-                    rect.width,
-                    rect.height,
-                )
-            } else {
-                runtimeShader.setFloatUniform("u_rectData[$i]", 0f, 0f, 0f, 0f)
-            }
-        }
     }
 
-    val renderEffect = remember(limitedRectsPx, shader) {
-        if (Build.VERSION.SDK_INT >= 33 && shader != null && limitedRectsPx.isNotEmpty()) {
+    val renderEffect = remember(rectPx, shader) {
+        if (Build.VERSION.SDK_INT >= 33 && shader != null && rectPx != null) {
             RenderEffect
                 .createRuntimeShaderEffect(shader, "background")
                 .asComposeRenderEffect()
@@ -222,8 +169,8 @@ fun LiquidGlassRectOverlay(
             .then(layerModifier)
             .drawWithContent {
                 drawContent()
-                if ((Build.VERSION.SDK_INT < 33 || shader == null) && limitedRectsPx.isNotEmpty()) {
-                    drawFallbackGlass(limitedRectsPx, spec)
+                if ((Build.VERSION.SDK_INT < 33 || shader == null) && rectPx != null) {
+                    drawFallbackGlass(rectPx, spec)
                 }
             }
     ) {
@@ -239,21 +186,19 @@ private fun LiquidGlassRect.toRect(density: Density): Rect = with(density) {
     Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx)
 }
 
-private fun DrawScope.drawFallbackGlass(rects: List<Rect>, spec: LiquidGlassSpec) {
+private fun DrawScope.drawFallbackGlass(rect: Rect, spec: LiquidGlassSpec) {
     val corner = androidx.compose.ui.geometry.CornerRadius(spec.cornerRadius.toPx())
-    rects.forEach { rect ->
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.06f),
-            topLeft = Offset(rect.left, rect.top),
-            size = Size(rect.width, rect.height),
-            cornerRadius = corner
-        )
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.10f),
-            topLeft = Offset(rect.left, rect.top),
-            size = Size(rect.width, rect.height),
-            cornerRadius = corner
-        )
-    }
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.06f),
+        topLeft = Offset(rect.left, rect.top),
+        size = Size(rect.width, rect.height),
+        cornerRadius = corner
+    )
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.10f),
+        topLeft = Offset(rect.left, rect.top),
+        size = Size(rect.width, rect.height),
+        cornerRadius = corner
+    )
 }
 

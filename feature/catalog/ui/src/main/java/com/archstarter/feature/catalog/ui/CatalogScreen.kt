@@ -40,10 +40,10 @@ fun CatalogScreen(
   val listState = rememberLazyListState()
   val density = LocalDensity.current
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
-  var bottomControlsSize by remember { mutableStateOf(IntSize.Zero) }
-  var overlayRootOffset by remember { mutableStateOf<Offset?>(null) }
-  var settingsButtonRootOffset by remember { mutableStateOf<Offset?>(null) }
-  var refreshButtonRootOffset by remember { mutableStateOf<Offset?>(null) }
+  var viewportOffset by remember { mutableStateOf(Offset.Zero) }
+  var bottomControlsHeight by remember { mutableStateOf(0.dp) }
+  var settingsButtonOffset by remember { mutableStateOf<Offset?>(null) }
+  var refreshButtonOffset by remember { mutableStateOf<Offset?>(null) }
   var settingsButtonSize by remember { mutableStateOf<IntSize?>(null) }
   var refreshButtonSize by remember { mutableStateOf<IntSize?>(null) }
   val centeredItemInfo by remember {
@@ -96,46 +96,44 @@ fun CatalogScreen(
       null
     }
   }
-  val densityValue = density.density
-  val settingsGlassRect by remember(overlayRootOffset, settingsButtonRootOffset, settingsButtonSize, densityValue) {
-    derivedStateOf {
-      val overlayOffset = overlayRootOffset
-      val buttonOffset = settingsButtonRootOffset
-      val buttonSize = settingsButtonSize
-      if (overlayOffset == null || buttonOffset == null || buttonSize == null) {
-        null
-      } else {
-        val left = ((buttonOffset.x - overlayOffset.x) / densityValue).dp
-        val top = ((buttonOffset.y - overlayOffset.y) / densityValue).dp
-        val width = (buttonSize.width.toFloat() / densityValue).dp
-        val height = (buttonSize.height.toFloat() / densityValue).dp
-        LiquidGlassRect(left = left, top = top, width = width, height = height)
+  val centerGlassRect = remember(glassRect, viewportOffset, density) {
+    glassRect?.let { rect ->
+      val offsetX = with(density) { viewportOffset.x.toDp() }
+      val offsetY = with(density) { viewportOffset.y.toDp() }
+      rect.copy(left = rect.left + offsetX, top = rect.top + offsetY)
+    }
+  }
+  val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density) {
+    val buttonOffset = settingsButtonOffset
+    val buttonSize = settingsButtonSize
+    if (buttonOffset == null || buttonSize == null) {
+      null
+    } else {
+      with(density) {
+        LiquidGlassRect(
+          left = buttonOffset.x.toDp(),
+          top = buttonOffset.y.toDp(),
+          width = buttonSize.width.toDp(),
+          height = buttonSize.height.toDp(),
+        )
       }
     }
   }
-  val refreshGlassRect by remember(overlayRootOffset, refreshButtonRootOffset, refreshButtonSize, densityValue) {
-    derivedStateOf {
-      val overlayOffset = overlayRootOffset
-      val buttonOffset = refreshButtonRootOffset
-      val buttonSize = refreshButtonSize
-      if (overlayOffset == null || buttonOffset == null || buttonSize == null) {
-        null
-      } else {
-        val left = ((buttonOffset.x - overlayOffset.x) / densityValue).dp
-        val top = ((buttonOffset.y - overlayOffset.y) / densityValue).dp
-        val width = (buttonSize.width.toFloat() / densityValue).dp
-        val height = (buttonSize.height.toFloat() / densityValue).dp
-        LiquidGlassRect(left = left, top = top, width = width, height = height)
+  val refreshGlassRect = remember(refreshButtonOffset, refreshButtonSize, density) {
+    val buttonOffset = refreshButtonOffset
+    val buttonSize = refreshButtonSize
+    if (buttonOffset == null || buttonSize == null) {
+      null
+    } else {
+      with(density) {
+        LiquidGlassRect(
+          left = buttonOffset.x.toDp(),
+          top = buttonOffset.y.toDp(),
+          width = buttonSize.width.toDp(),
+          height = buttonSize.height.toDp(),
+        )
       }
     }
-  }
-  val bottomGlassRects = remember(settingsGlassRect, refreshGlassRect) {
-    listOfNotNull(settingsGlassRect, refreshGlassRect)
-  }
-  val bottomControlsHeight = if (bottomControlsSize.height == 0) {
-    0.dp
-  } else {
-    (bottomControlsSize.height.toFloat() / densityValue).dp
   }
   val listBottomPadding = 32.dp + bottomControlsHeight
 
@@ -147,59 +145,81 @@ fun CatalogScreen(
     ) {
       Text("Catalog", style = MaterialTheme.typography.titleLarge)
       Spacer(Modifier.height(8.dp))
-      Box(Modifier.weight(1f)) {
-        LiquidGlassRectOverlay(
-          rects = listOfNotNull(glassRect),
-          modifier = Modifier
-            .fillMaxSize()
-            .onSizeChanged { viewportSize = it }
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .onGloballyPositioned { coords -> viewportOffset = coords.positionInRoot() }
+          .onSizeChanged { viewportSize = it }
+      ) {
+        LazyColumn(
+          state = listState,
+          contentPadding = PaddingValues(bottom = listBottomPadding),
+          verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(bottom = listBottomPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            items(state.items, key = { it }) { id ->
-              CatalogItemCard(id = id)
-            }
+          items(state.items, key = { it }) { id ->
+            CatalogItemCard(id = id)
           }
         }
       }
     }
 
-    LiquidGlassRectOverlay(
-      rects = bottomGlassRects,
+    centerGlassRect?.let { rect ->
+      LiquidGlassRectOverlay(
+        rect = rect,
+        modifier = Modifier.fillMaxSize()
+      ) {
+        Box(Modifier.fillMaxSize())
+      }
+    }
+
+    settingsGlassRect?.let { rect ->
+      LiquidGlassRectOverlay(
+        rect = rect,
+        modifier = Modifier.fillMaxSize()
+      ) {
+        Box(Modifier.fillMaxSize())
+      }
+    }
+
+    refreshGlassRect?.let { rect ->
+      LiquidGlassRectOverlay(
+        rect = rect,
+        modifier = Modifier.fillMaxSize()
+      ) {
+        Box(Modifier.fillMaxSize())
+      }
+    }
+
+    val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+    Row(
       modifier = Modifier
         .align(Alignment.BottomCenter)
         .padding(horizontal = 16.dp, vertical = 16.dp)
         .navigationBarsPadding()
-        .onSizeChanged { bottomControlsSize = it }
-        .onGloballyPositioned { overlayRootOffset = it.positionInRoot() }
+        .onSizeChanged { size ->
+          bottomControlsHeight = with(density) { size.height.toDp() }
+        },
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Box(
-          modifier = Modifier.onGloballyPositioned { coords ->
-            settingsButtonRootOffset = coords.positionInRoot()
-            settingsButtonSize = coords.size
-          }
-        ) {
-          Box(modifier = Modifier.padding(glassPadding)) {
-            Button(onClick = p::onSettingsClick) { Text("Settings") }
-          }
+      Box(
+        modifier = Modifier.onGloballyPositioned { coords ->
+          settingsButtonOffset = coords.positionInRoot()
+          settingsButtonSize = coords.size
         }
-        Box(
-          modifier = Modifier.onGloballyPositioned { coords ->
-            refreshButtonRootOffset = coords.positionInRoot()
-            refreshButtonSize = coords.size
-          }
-        ) {
-          Box(modifier = Modifier.padding(glassPadding)) {
-            Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
-          }
+      ) {
+        Box(modifier = Modifier.padding(glassPadding)) {
+          Button(onClick = p::onSettingsClick) { Text("Settings") }
+        }
+      }
+      Box(
+        modifier = Modifier.onGloballyPositioned { coords ->
+          refreshButtonOffset = coords.positionInRoot()
+          refreshButtonSize = coords.size
+        }
+      ) {
+        Box(modifier = Modifier.padding(glassPadding)) {
+          Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
         }
       }
     }
