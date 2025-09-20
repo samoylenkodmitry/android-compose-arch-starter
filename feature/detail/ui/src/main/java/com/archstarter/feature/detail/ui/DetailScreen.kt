@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.tooling.preview.Preview
@@ -175,11 +176,11 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
           ) {
           awaitPointerEventScope {
             while (true) {
-              val event = awaitPointerEvent()
-              val pos = event.changes.first().position
+              val event = awaitPointerEvent(PointerEventPass.Initial)
+              val change = event.changes.firstOrNull() ?: continue
+              val pos = change.position
               val layoutResult = layout ?: continue
               if (displayContent.isEmpty()) {
-                event.changes.forEach { it.consume() }
                 continue
               }
               val textLength = displayContent.length
@@ -188,7 +189,6 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                 .coerceIn(0, textLength)
               val searchOffset = if (rawOffset == textLength) rawOffset - 1 else rawOffset
               if (searchOffset < 0) {
-                event.changes.forEach { it.consume() }
                 continue
               }
               val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) }
@@ -212,7 +212,6 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                   }
                 }
               }
-              event.changes.forEach { it.consume() }
             }
           }
         }
