@@ -1,10 +1,6 @@
 package com.archstarter.feature.settings.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -76,7 +72,8 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
             onDismissRequest = {
                 expanded = false
                 searchQuery = ""
-            }
+            },
+            modifier = Modifier.animateContentSize()
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -89,11 +86,13 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                     .fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
-            AnimatedVisibility(
-                visible = filteredLanguages.isNotEmpty(),
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
+            if (filteredLanguages.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("No languages found") },
+                    enabled = false,
+                    onClick = {},
+                )
+            } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -110,17 +109,6 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                         )
                     }
                 }
-            }
-            AnimatedVisibility(
-                visible = filteredLanguages.isEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                DropdownMenuItem(
-                    text = { Text("No languages found") },
-                    enabled = false,
-                    onClick = {},
-                )
             }
         }
     }
