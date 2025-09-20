@@ -51,7 +51,8 @@ class ArticleRepository @Inject constructor(
   private val translator: TranslatorService,
   private val dictionary: DictionaryService,
   private val settings: SettingsStateProvider,
-  private val dao: ArticleDao
+  private val dao: ArticleDao,
+  private val translationDao: TranslationDao,
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
 
@@ -102,6 +103,10 @@ class ArticleRepository @Inject constructor(
       ) ?: return
     }
 
+    if (nativeCode != learningCode) {
+      storeTranslation("$nativeCode|$learningCode", nativeWord, learningTranslation)
+    }
+
     val ipa = if (nativeCode == "en") {
       runCatching {
         dictionary.lookup(nativeWord).firstOrNull()?.phonetics?.firstOrNull()?.text
@@ -146,12 +151,18 @@ class ArticleRepository @Inject constructor(
       ?: nativeCode
     if (sourceCode == nativeCode) return text
     val sourceLanguage = languageDisplayName(sourceCode)
-    return translateWithFallback(
+    val langPair = "$sourceCode|$nativeCode"
+    cachedTranslation(langPair, text)?.let { return it }
+    val translation = translateWithFallback(
       word = text,
-      langPair = "$sourceCode|$nativeCode",
+      langPair = langPair,
       sourceLanguage = sourceLanguage,
       targetLanguage = nativeLanguage
     )
+    if (translation != null) {
+      storeTranslation(langPair, text, translation)
+    }
+    return translation
   }
 
   override suspend fun translate(word: String): String? {
@@ -162,12 +173,17 @@ class ArticleRepository @Inject constructor(
     val learningCode = languageCodes[learningLanguage] ?: return null
     if (nativeCode == learningCode) return word
     val langPair = "$nativeCode|$learningCode"
-    return translateWithFallback(
+    cachedTranslation(langPair, word)?.let { return it }
+    val translation = translateWithFallback(
       word = word,
       langPair = langPair,
       sourceLanguage = nativeLanguage,
       targetLanguage = learningLanguage
     )
+    if (translation != null) {
+      storeTranslation(langPair, word, translation)
+    }
+    return translation
   }
 
   private suspend fun translateWithFallback(
@@ -181,7 +197,8 @@ class ArticleRepository @Inject constructor(
       ?.takeIf { it.responseStatus == HTTP_OK }
       ?.responseData
       ?.translatedText
-      ?.takeIf { it.isNotBlank() }
+      ?.trim()
+      ?.takeIf { it.isNotEmpty() }
 
     if (translation != null) return translation
 
@@ -193,10 +210,35 @@ class ArticleRepository @Inject constructor(
 
     val fallback = runCatching {
       val response = retry { summarizer.summarize(prompt) }
-      fallbackJson.decodeFromString<AiTranslation>(response).translatedText
+      fallbackJson.decodeFromString<AiTranslation>(response).translatedText.trim()
     }.getOrNull()
 
-    return fallback?.takeIf { it.isNotBlank() }
+    return fallback?.takeIf { it.isNotEmpty() }
+  }
+
+  private suspend fun cachedTranslation(langPair: String, input: String): String? {
+    val key = normalizedInput(input) ?: return null
+    return translationDao.translation(langPair, key)?.translation
+  }
+
+  private suspend fun storeTranslation(langPair: String, input: String, translation: String) {
+    val key = normalizedInput(input) ?: return
+    val normalizedTranslation = translation.trim()
+    if (normalizedTranslation.isEmpty()) return
+    translationDao.insert(
+      TranslationEntity(
+        langPair = langPair,
+        normalizedText = key,
+        translation = normalizedTranslation,
+        updatedAt = System.currentTimeMillis()
+      )
+    )
+  }
+
+  private fun normalizedInput(input: String): String? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    return trimmed.lowercase(Locale.ROOT)
   }
 
   private suspend fun detectLanguageCode(text: String): String? {
@@ -298,6 +340,9 @@ object ArticleDataModule {
   fun provideArticleDao(db: AppDatabase): ArticleDao = db.articleDao()
 
   @Provides
+  fun provideTranslationDao(db: AppDatabase): TranslationDao = db.translationDao()
+
+  @Provides
   @Singleton
   fun provideArticleRepo(
     wiki: WikipediaService,
@@ -305,6 +350,8 @@ object ArticleDataModule {
     translator: TranslatorService,
     dictionary: DictionaryService,
     settings: SettingsRepository,
-    dao: ArticleDao
-  ): ArticleRepo = ArticleRepository(wiki, summarizer, translator, dictionary, settings, dao)
+    dao: ArticleDao,
+    translationDao: TranslationDao,
+  ): ArticleRepo =
+    ArticleRepository(wiki, summarizer, translator, dictionary, settings, dao, translationDao)
 }

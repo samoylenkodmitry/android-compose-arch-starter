@@ -22,6 +22,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,7 +79,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   }
 
   Column(Modifier.padding(16.dp)) {
-    Text(state.title, style = MaterialTheme.typography.titleLarge)
+    Text(state.title, style = MaterialTheme.typography.headlineSmall)
     val content = state.content
     val words = remember(content) { content.toWordEntries() }
     LaunchedEffect(content) {
@@ -102,7 +103,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       }
     }
     val translations = state.wordTranslations
-    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge
+    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp)
     val textMeasurer = rememberTextMeasurer()
     val measureTextWidth = remember(textMeasurer, textStyle) {
       { text: String ->
@@ -211,12 +212,12 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       )
     }
     if (state.ipa != null) {
-      Text("IPA: ${state.ipa}", style = MaterialTheme.typography.bodySmall)
+      Text("IPA: ${state.ipa}", style = MaterialTheme.typography.bodyMedium)
     }
     val sourceUrl = state.sourceUrl
     Text(
       text = "Source: $sourceUrl",
-      style = MaterialTheme.typography.bodySmall,
+      style = MaterialTheme.typography.bodyMedium,
       modifier = Modifier.clickable(enabled = sourceUrl.isNotBlank()) {
         p.onSourceClick(sourceUrl)
       }
