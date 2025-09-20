@@ -11,10 +11,12 @@ import com.archstarter.feature.catalog.impl.data.TranslationResponse
 import com.archstarter.feature.catalog.impl.data.TranslatorService
 import com.archstarter.feature.catalog.impl.data.WikipediaService
 import com.archstarter.feature.catalog.impl.data.WikipediaSummary
-import com.archstarter.feature.settings.impl.data.SettingsRepository
+import com.archstarter.feature.settings.api.SettingsState
+import com.archstarter.feature.settings.api.SettingsStateProvider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -31,7 +33,7 @@ class ArticleRepositoryTest {
   private fun summary() = WikipediaSummary(
     pageid = 1,
     title = "Title",
-    extract = "Some example extract with random words",
+    extract = "Bonjour bonjour bonjour",
     contentUrls = WikipediaSummary.ContentUrls(
       WikipediaSummary.ContentUrls.Desktop("url")
     )
@@ -45,8 +47,26 @@ class ArticleRepositoryTest {
     val inserted: List<ArticleEntity> get() = data.value
   }
 
+  private class FakeSettingsRepository(
+    native: String = "English",
+    learning: String = "Spanish"
+  ) : SettingsStateProvider {
+    private val stateFlow = MutableStateFlow(
+      SettingsState(nativeLanguage = native, learningLanguage = learning)
+    )
+    override val state: StateFlow<SettingsState> = stateFlow
+
+    suspend fun updateNative(language: String) {
+      stateFlow.value = stateFlow.value.copy(nativeLanguage = language)
+    }
+
+    suspend fun updateLearning(language: String) {
+      stateFlow.value = stateFlow.value.copy(learningLanguage = language)
+    }
+  }
+
   @Test
-  fun translateUsesEnglishToLearningLangPair() = runTest {
+  fun translateUsesNativeToLearningLangPair() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
     val repo = ArticleRepository(
@@ -59,7 +79,7 @@ class ArticleRepositoryTest {
         }
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = SettingsRepository(),
+      settings = FakeSettingsRepository(),
       dao = dao
     )
 
@@ -70,10 +90,10 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun translateIgnoresNativeLanguageForSource() = runTest {
+  fun translateUsesUpdatedNativeLanguageForSource() = runTest {
     val dao = FakeArticleDao()
     var usedLangPair: String? = null
-    val settings = SettingsRepository()
+    val settings = FakeSettingsRepository()
     settings.updateNative("Serbian")
     settings.updateLearning("German")
     val repo = ArticleRepository(
@@ -92,7 +112,7 @@ class ArticleRepositoryTest {
 
     repo.translate("word")
 
-    assertEquals("en|de", usedLangPair)
+    assertEquals("sr|de", usedLangPair)
   }
 
   @Test
@@ -108,7 +128,7 @@ class ArticleRepositoryTest {
           TranslationResponse(TranslationData("api"), responseStatus = 403)
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = SettingsRepository(),
+      settings = FakeSettingsRepository(),
       dao = dao
     )
 
@@ -118,42 +138,108 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun refreshUsesEnglishToLearningLangPair() = runTest {
+  fun refreshTranslatesArticleAndHighlightedWord() = runTest {
     val dao = FakeArticleDao()
-    var usedLangPair: String? = null
+    val calls = mutableListOf<Pair<String, String>>()
     val repo = ArticleRepository(
       wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "ok" },
+      summarizer = object : SummarizerService {
+        override suspend fun summarize(prompt: String): String = when {
+          prompt.startsWith("Summarize this") -> "Résumé"
+          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"fr\"}"
+          else -> "{\"translatedText\":\"Beta\"}"
+        }
+      },
       translator = object : TranslatorService {
         override suspend fun translate(word: String, langPair: String): TranslationResponse {
-          usedLangPair = langPair
-          return TranslationResponse(TranslationData("hola"))
+          calls += langPair to word
+          val translation = when (langPair) {
+            "fr|en" -> "Alpha Alpha Alpha"
+            "en|es" -> "Beta"
+            else -> ""
+          }
+          return TranslationResponse(TranslationData(translation))
         }
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = SettingsRepository(),
+      settings = FakeSettingsRepository(),
       dao = dao
     )
 
     repo.refresh()
 
-    assertEquals("en|es", usedLangPair)
+    assertEquals(listOf("fr|en", "fr|en", "en|es"), calls.map { it.first })
+    assertEquals(1, dao.inserted.size)
+    val entity = dao.inserted.first()
+    assertEquals("Alpha Alpha Alpha", entity.summary)
+    assertEquals("Alpha (Beta) Alpha Alpha", entity.content)
+    assertEquals("Alpha", entity.originalWord)
+    assertEquals("Beta", entity.translatedWord)
   }
 
   @Test
-  fun refreshIgnoresCustomNativeLanguageForSource() = runTest {
+  fun refreshSkipsSummaryTranslationWhenSummaryAlreadyNative() = runTest {
     val dao = FakeArticleDao()
-    var usedLangPair: String? = null
-    val settings = SettingsRepository()
+    val calls = mutableListOf<String>()
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService {
+        override suspend fun summarize(prompt: String): String = when {
+          prompt.startsWith("Summarize this") -> "Hello there"
+          prompt.startsWith("Identify the ISO") && prompt.contains("Hello there") ->
+            "{\"languageCode\":\"en\"}"
+          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"fr\"}"
+          else -> error("unexpected prompt: $prompt")
+        }
+      },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          calls += langPair
+          val translation = when (langPair) {
+            "fr|en" -> "Hello Hello Hello"
+            "en|es" -> "Hola"
+            else -> ""
+          }
+          return TranslationResponse(TranslationData(translation))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = FakeSettingsRepository(),
+      dao = dao
+    )
+
+    repo.refresh()
+
+    assertEquals(listOf("fr|en", "en|es"), calls)
+    val entity = dao.inserted.first()
+    assertEquals("Hello there", entity.summary)
+  }
+
+  @Test
+  fun refreshRespectsCustomLanguages() = runTest {
+    val dao = FakeArticleDao()
+    val calls = mutableListOf<String>()
+    val settings = FakeSettingsRepository()
     settings.updateNative("French")
     settings.updateLearning("German")
     val repo = ArticleRepository(
       wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "ok" },
+      summarizer = object : SummarizerService {
+        override suspend fun summarize(prompt: String): String = when {
+          prompt.startsWith("Summarize this") -> "Résumé"
+          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"es\"}"
+          else -> "{\"translatedText\":\"Gamma\"}"
+        }
+      },
       translator = object : TranslatorService {
         override suspend fun translate(word: String, langPair: String): TranslationResponse {
-          usedLangPair = langPair
-          return TranslationResponse(TranslationData("guten tag"))
+          calls += langPair
+          val translation = when (langPair) {
+            "es|fr" -> "Alpha Alpha Alpha"
+            "fr|de" -> "Beta"
+            else -> ""
+          }
+          return TranslationResponse(TranslationData(translation))
         }
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
@@ -163,7 +249,11 @@ class ArticleRepositoryTest {
 
     repo.refresh()
 
-    assertEquals("en|de", usedLangPair)
+    assertTrue(calls.contains("es|fr"))
+    assertTrue(calls.contains("fr|de"))
+    val entity = dao.inserted.first()
+    assertEquals("Alpha", entity.originalWord)
+    assertEquals("Beta", entity.translatedWord)
   }
 
   @Test
@@ -178,7 +268,7 @@ class ArticleRepositoryTest {
         }
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = SettingsRepository(),
+      settings = FakeSettingsRepository(),
       dao = dao
     )
 
@@ -197,7 +287,7 @@ class ArticleRepositoryTest {
         override suspend fun translate(word: String, langPair: String) = TranslationResponse(TranslationData(""))
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = SettingsRepository(),
+      settings = FakeSettingsRepository(),
       dao = dao
     )
 
@@ -212,15 +302,18 @@ class ArticleRepositoryTest {
     val repo = ArticleRepository(
       wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
       summarizer = object : SummarizerService {
-        override suspend fun summarize(prompt: String): String =
-          if (prompt.startsWith("Summarize this")) "ok" else "{\"translatedText\":\"hola\"}"
+        override suspend fun summarize(prompt: String): String = when {
+          prompt.startsWith("Summarize this") -> "ok"
+          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"fr\"}"
+          else -> "{\"translatedText\":\"hola\"}"
+        }
       },
       translator = object : TranslatorService {
         override suspend fun translate(word: String, langPair: String): TranslationResponse =
           TranslationResponse(TranslationData("api"), responseStatus = 403)
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = SettingsRepository(),
+      settings = FakeSettingsRepository(),
       dao = dao
     )
 

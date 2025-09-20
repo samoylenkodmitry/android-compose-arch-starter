@@ -20,14 +20,18 @@ import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import javax.inject.Inject
+import com.archstarter.feature.settings.api.SettingsStateProvider
 import com.archstarter.feature.settings.api.languageCodes
 import com.archstarter.feature.settings.impl.data.SettingsRepository
+import java.util.Locale
 
-private const val DEFAULT_ARTICLE_LANGUAGE = "English"
 private const val HTTP_OK = 200
 
 @Serializable
 private data class AiTranslation(val translatedText: String)
+
+@Serializable
+private data class AiLanguageDetection(val languageCode: String)
 
 private val fallbackJson = Json { ignoreUnknownKeys = true }
 
@@ -44,7 +48,7 @@ class ArticleRepository @Inject constructor(
   private val summarizer: SummarizerService,
   private val translator: TranslatorService,
   private val dictionary: DictionaryService,
-  private val settings: SettingsRepository,
+  private val settings: SettingsStateProvider,
   private val dao: ArticleDao
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
@@ -57,33 +61,78 @@ class ArticleRepository @Inject constructor(
       .getOrElse { return }
       .takeIf { it.isNotBlank() } ?: return
 
-    val words = summary.extract.split("\\W+".toRegex()).filter { it.length > 3 }
-    val original = words.randomOrNull() ?: return
-
     val state = settings.state.value
-    val targetCode = languageCodes[state.learningLanguage] ?: return
-    val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return
-    val langPair = "$sourceCode|$targetCode"
-    val translation = translateWithFallback(
-      word = original,
-      langPair = langPair,
-      sourceLanguage = DEFAULT_ARTICLE_LANGUAGE,
-      targetLanguage = state.learningLanguage
-    ) ?: return
+    val nativeLanguage = state.nativeLanguage
+    val learningLanguage = state.learningLanguage
+    val nativeCode = languageCodes[nativeLanguage] ?: return
+    val learningCode = languageCodes[learningLanguage] ?: return
 
-    val ipa = runCatching {
-      dictionary.lookup(original).firstOrNull()?.phonetics?.firstOrNull()?.text
-    }.getOrNull()
+    val summaryLanguageCode = detectLanguageCode(summaryText)
+    val contentLanguageCode = detectLanguageCode(summary.extract)
 
-    val replaced = summary.extract.replaceFirst(original, "$translation ($original)")
+    val summarySourceCode = summaryLanguageCode ?: contentLanguageCode ?: nativeCode
+    val contentSourceCode = contentLanguageCode ?: summaryLanguageCode ?: nativeCode
+
+    val summarySourceLanguage = languageDisplayName(summarySourceCode)
+    val contentSourceLanguage = languageDisplayName(contentSourceCode)
+
+    val translatedSummary = if (summarySourceCode == nativeCode) {
+      summaryText
+    } else {
+      translateWithFallback(
+        word = summaryText,
+        langPair = "$summarySourceCode|$nativeCode",
+        sourceLanguage = summarySourceLanguage,
+        targetLanguage = nativeLanguage
+      ) ?: return
+    }
+
+    val translatedContent = if (contentSourceCode == nativeCode) {
+      summary.extract
+    } else {
+      translateWithFallback(
+        word = summary.extract,
+        langPair = "$contentSourceCode|$nativeCode",
+        sourceLanguage = contentSourceLanguage,
+        targetLanguage = nativeLanguage
+      ) ?: return
+    }
+
+    val words = translatedContent.split("\\W+".toRegex()).filter { it.length > 3 }
+    val nativeWord = words.randomOrNull() ?: return
+
+    val learningTranslation = if (nativeCode == learningCode) {
+      nativeWord
+    } else {
+      translateWithFallback(
+        word = nativeWord,
+        langPair = "$nativeCode|$learningCode",
+        sourceLanguage = nativeLanguage,
+        targetLanguage = learningLanguage
+      ) ?: return
+    }
+
+    val ipa = if (nativeCode == "en") {
+      runCatching {
+        dictionary.lookup(nativeWord).firstOrNull()?.phonetics?.firstOrNull()?.text
+      }.getOrNull()
+    } else {
+      null
+    }
+
+    val replaced = if (learningTranslation == nativeWord) {
+      translatedContent
+    } else {
+      translatedContent.replaceFirst(nativeWord, "$nativeWord ($learningTranslation)")
+    }
     val entity = ArticleEntity(
       id = summary.pageid,
       title = summary.title,
-      summary = summaryText,
+      summary = translatedSummary,
       content = replaced,
       sourceUrl = summary.contentUrls.desktop.page,
-      originalWord = original,
-      translatedWord = translation,
+      originalWord = nativeWord,
+      translatedWord = learningTranslation,
       ipa = ipa,
       createdAt = System.currentTimeMillis()
     )
@@ -94,14 +143,17 @@ class ArticleRepository @Inject constructor(
 
   override suspend fun translate(word: String): String? {
     val state = settings.state.value
-    val targetCode = languageCodes[state.learningLanguage] ?: return null
-    val sourceCode = languageCodes[DEFAULT_ARTICLE_LANGUAGE] ?: return null
-    val langPair = "$sourceCode|$targetCode"
+    val nativeLanguage = state.nativeLanguage
+    val learningLanguage = state.learningLanguage
+    val nativeCode = languageCodes[nativeLanguage] ?: return null
+    val learningCode = languageCodes[learningLanguage] ?: return null
+    if (nativeCode == learningCode) return word
+    val langPair = "$nativeCode|$learningCode"
     return translateWithFallback(
       word = word,
       langPair = langPair,
-      sourceLanguage = DEFAULT_ARTICLE_LANGUAGE,
-      targetLanguage = state.learningLanguage
+      sourceLanguage = nativeLanguage,
+      targetLanguage = learningLanguage
     )
   }
 
@@ -121,9 +173,9 @@ class ArticleRepository @Inject constructor(
     if (translation != null) return translation
 
     val prompt = buildString {
-      appendLine("Translate the following word from $sourceLanguage to $targetLanguage.")
+      appendLine("Translate the following text from $sourceLanguage to $targetLanguage.")
       appendLine("Respond ONLY with valid JSON using this schema: {\"translatedText\":\"<translation>\"}.")
-      append("Word: $word")
+      append("Text: $word")
     }
 
     val fallback = runCatching {
@@ -132,6 +184,30 @@ class ArticleRepository @Inject constructor(
     }.getOrNull()
 
     return fallback?.takeIf { it.isNotBlank() }
+  }
+
+  private suspend fun detectLanguageCode(text: String): String? {
+    val sample = text.trim().take(1000)
+    if (sample.isBlank()) return null
+    val prompt = buildString {
+      appendLine("Identify the ISO 639-1 language code (two letters) for the following text.")
+      appendLine("Respond ONLY with valid JSON using this schema: {\"languageCode\":\"<code>\"}.")
+      appendLine("Text:")
+      append(sample)
+    }
+
+    return runCatching {
+      val response = retry { summarizer.summarize(prompt) }
+      fallbackJson.decodeFromString<AiLanguageDetection>(response).languageCode
+        .lowercase(Locale.ENGLISH)
+    }.getOrNull()?.takeIf { it.length == 2 }
+  }
+
+  private fun languageDisplayName(code: String): String {
+    val mapped = languageCodes.entries.firstOrNull { it.value.equals(code, ignoreCase = true) }?.key
+    if (mapped != null) return mapped
+    val localeName = Locale(code).getDisplayLanguage(Locale.ENGLISH)
+    return if (localeName.isBlank()) code else localeName
   }
 
   private suspend fun <T> retry(times: Int = 3, block: suspend () -> T): T {

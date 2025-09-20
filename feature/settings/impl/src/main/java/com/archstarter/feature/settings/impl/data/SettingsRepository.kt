@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.archstarter.feature.settings.api.SettingsState
+import com.archstarter.feature.settings.api.SettingsStateProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
@@ -28,11 +29,11 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 @Singleton
 class SettingsRepository @Inject constructor(
     @ApplicationContext context: Context,
-) {
+) : SettingsStateProvider {
     private val dataStore: DataStore<Preferences> = context.settingsDataStore
     private val defaultState = SettingsState()
     private val _state = MutableStateFlow(defaultState)
-    val state: StateFlow<SettingsState> = _state.asStateFlow()
+    override val state: StateFlow<SettingsState> = _state.asStateFlow()
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
