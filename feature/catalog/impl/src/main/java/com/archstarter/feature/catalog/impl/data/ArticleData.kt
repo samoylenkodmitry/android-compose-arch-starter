@@ -14,12 +14,14 @@ import kotlinx.coroutines.flow.Flow
 data class ArticleEntity(
   @PrimaryKey val id: Int,
   val title: String,
-  val summary: String,
-  val content: String,
-  val sourceUrl: String,
-  val originalWord: String,
-  val translatedWord: String,
+  val summaryOriginal: String,
+  val summaryTranslated: String?,
+  val contentOriginal: String,
+  val contentTranslated: String?,
+  val originalWord: String?,
+  val translatedWord: String?,
   val ipa: String?,
+  val sourceUrl: String,
   val createdAt: Long
 )
 
@@ -35,7 +37,7 @@ interface ArticleDao {
   suspend fun insert(article: ArticleEntity)
 }
 
-@Database(entities = [ArticleEntity::class], version = 2)
+@Database(entities = [ArticleEntity::class], version = 3)
 abstract class AppDatabase : RoomDatabase() {
   abstract fun articleDao(): ArticleDao
 }

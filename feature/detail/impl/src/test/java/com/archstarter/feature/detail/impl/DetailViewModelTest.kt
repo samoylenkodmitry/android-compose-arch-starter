@@ -92,12 +92,14 @@ class DetailViewModelTest {
   ) = ArticleEntity(
     id = id,
     title = title,
-    summary = summary,
-    content = content,
-    sourceUrl = sourceUrl,
+    summaryOriginal = summary,
+    summaryTranslated = summary,
+    contentOriginal = content,
+    contentTranslated = content,
     originalWord = original,
     translatedWord = translated,
     ipa = ipa,
+    sourceUrl = sourceUrl,
     createdAt = createdAt,
   )
 
@@ -111,6 +113,8 @@ class DetailViewModelTest {
     override suspend fun refresh() {}
 
     override suspend fun article(id: Int): ArticleEntity? = article
+
+    override suspend fun translateArticle(id: Int): ArticleEntity? = article
 
     override suspend fun translate(word: String): String? {
       translateCalls += 1

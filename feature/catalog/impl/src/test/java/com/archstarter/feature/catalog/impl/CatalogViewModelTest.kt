@@ -28,11 +28,12 @@ class CatalogViewModelTest {
       override val articles: StateFlow<List<ArticleEntity>> = data
       override suspend fun refresh() {
         data.value = listOf(
-          ArticleEntity(1,"One","S","C","u","o","t",null,0L),
-          ArticleEntity(2,"Two","S","C","u","o","t",null,1L)
+          articleEntity(1, "One", 0L),
+          articleEntity(2, "Two", 1L)
         )
       }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+      override suspend fun translateArticle(id: Int): ArticleEntity? = article(id)
       override suspend fun translate(word: String): String? = word
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
@@ -57,10 +58,11 @@ class CatalogViewModelTest {
         refreshCount++
         val id = refreshCount
         data.value = listOf(
-          ArticleEntity(id, "Title$id", "S", "C", "u", "o", "t", null, id.toLong())
+          articleEntity(id, "Title$id", id.toLong())
         ) + data.value
       }
       override suspend fun article(id: Int): ArticleEntity? = null
+      override suspend fun translateArticle(id: Int): ArticleEntity? = null
       override suspend fun translate(word: String): String? = word
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
@@ -78,12 +80,13 @@ class CatalogViewModelTest {
   @Test
   fun initDoesNotFetchWhenArticlesAlreadyExist() = runTest {
     var refreshCount = 0
-    val existing = ArticleEntity(1, "One", "S", "C", "u", "o", "t", null, 0L)
+    val existing = articleEntity(1, "One", 0L)
     val data = MutableStateFlow(listOf(existing))
     val repo = object : ArticleRepo {
       override val articles: StateFlow<List<ArticleEntity>> = data
       override suspend fun refresh() { refreshCount++ }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+      override suspend fun translateArticle(id: Int): ArticleEntity? = article(id)
       override suspend fun translate(word: String): String? = word
     }
     val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
@@ -98,3 +101,17 @@ class CatalogViewModelTest {
     assertEquals(listOf(existing.id), vm.state.value.items)
   }
 }
+
+private fun articleEntity(id: Int, title: String, createdAt: Long) = ArticleEntity(
+  id = id,
+  title = title,
+  summaryOriginal = "S",
+  summaryTranslated = null,
+  contentOriginal = "C",
+  contentTranslated = null,
+  originalWord = null,
+  translatedWord = null,
+  ipa = null,
+  sourceUrl = "u",
+  createdAt = createdAt
+)

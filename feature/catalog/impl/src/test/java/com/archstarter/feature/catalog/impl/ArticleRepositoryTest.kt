@@ -43,7 +43,9 @@ class ArticleRepositoryTest {
     private val data = MutableStateFlow<List<ArticleEntity>>(emptyList())
     override fun getArticles(): Flow<List<ArticleEntity>> = data
     override suspend fun getArticle(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
-    override suspend fun insert(article: ArticleEntity) { data.value = data.value + article }
+    override suspend fun insert(article: ArticleEntity) {
+      data.value = data.value.filterNot { it.id == article.id } + article
+    }
     val inserted: List<ArticleEntity> get() = data.value
   }
 
@@ -138,7 +140,38 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun refreshTranslatesArticleAndHighlightedWord() = runTest {
+  fun refreshInsertsUntranslatedArticle() = runTest {
+    val dao = FakeArticleDao()
+    var translateCalls = 0
+    val repo = ArticleRepository(
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "Résumé" },
+      translator = object : TranslatorService {
+        override suspend fun translate(word: String, langPair: String): TranslationResponse {
+          translateCalls += 1
+          return TranslationResponse(TranslationData("ignored"))
+        }
+      },
+      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
+      settings = FakeSettingsRepository(),
+      dao = dao
+    )
+
+    repo.refresh()
+
+    assertEquals(0, translateCalls)
+    assertEquals(1, dao.inserted.size)
+    val entity = dao.inserted.first()
+    assertEquals("Résumé", entity.summaryOriginal)
+    assertEquals(null, entity.summaryTranslated)
+    assertEquals("Bonjour bonjour bonjour", entity.contentOriginal)
+    assertEquals(null, entity.contentTranslated)
+    assertEquals(null, entity.originalWord)
+    assertEquals(null, entity.translatedWord)
+  }
+
+  @Test
+  fun translateArticleTranslatesArticleAndHighlightedWord() = runTest {
     val dao = FakeArticleDao()
     val calls = mutableListOf<Pair<String, String>>()
     val repo = ArticleRepository(
@@ -167,18 +200,20 @@ class ArticleRepositoryTest {
     )
 
     repo.refresh()
+    val updated = repo.translateArticle(1)
 
     assertEquals(listOf("fr|en", "fr|en", "en|es"), calls.map { it.first })
-    assertEquals(1, dao.inserted.size)
-    val entity = dao.inserted.first()
-    assertEquals("Alpha Alpha Alpha", entity.summary)
-    assertEquals("Alpha (Beta) Alpha Alpha", entity.content)
+    val entity = updated ?: error("article not translated")
+    assertEquals("Résumé", entity.summaryOriginal)
+    assertEquals("Alpha Alpha Alpha", entity.summaryTranslated)
+    assertEquals("Bonjour bonjour bonjour", entity.contentOriginal)
+    assertEquals("Alpha (Beta) Alpha Alpha", entity.contentTranslated)
     assertEquals("Alpha", entity.originalWord)
     assertEquals("Beta", entity.translatedWord)
   }
 
   @Test
-  fun refreshSkipsSummaryTranslationWhenSummaryAlreadyNative() = runTest {
+  fun translateArticleSkipsSummaryTranslationWhenSummaryAlreadyNative() = runTest {
     val dao = FakeArticleDao()
     val calls = mutableListOf<String>()
     val repo = ArticleRepository(
@@ -209,14 +244,14 @@ class ArticleRepositoryTest {
     )
 
     repo.refresh()
+    val entity = repo.translateArticle(1)
 
     assertEquals(listOf("fr|en", "en|es"), calls)
-    val entity = dao.inserted.first()
-    assertEquals("Hello there", entity.summary)
+    assertEquals("Hello there", entity?.summaryTranslated)
   }
 
   @Test
-  fun refreshRespectsCustomLanguages() = runTest {
+  fun translateArticleRespectsCustomLanguages() = runTest {
     val dao = FakeArticleDao()
     val calls = mutableListOf<String>()
     val settings = FakeSettingsRepository()
@@ -248,16 +283,16 @@ class ArticleRepositoryTest {
     )
 
     repo.refresh()
+    val entity = repo.translateArticle(1)
 
     assertTrue(calls.contains("es|fr"))
     assertTrue(calls.contains("fr|de"))
-    val entity = dao.inserted.first()
-    assertEquals("Alpha", entity.originalWord)
-    assertEquals("Beta", entity.translatedWord)
+    assertEquals("Alpha", entity?.originalWord)
+    assertEquals("Beta", entity?.translatedWord)
   }
 
   @Test
-  fun refreshSkipsOnNetworkError() = runTest {
+  fun translateArticleSkipsOnNetworkError() = runTest {
     val dao = FakeArticleDao()
     val repo = ArticleRepository(
       wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
@@ -273,12 +308,14 @@ class ArticleRepositoryTest {
     )
 
     repo.refresh()
+    val result = repo.translateArticle(1)
 
-    assertTrue(dao.inserted.isEmpty())
+    assertEquals(result?.summaryOriginal, result?.summaryTranslated)
+    assertEquals(result?.contentOriginal, result?.contentTranslated)
   }
 
   @Test
-  fun refreshSkipsOnEmptyTranslation() = runTest {
+  fun translateArticleSkipsOnEmptyTranslation() = runTest {
     val dao = FakeArticleDao()
     val repo = ArticleRepository(
       wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
@@ -292,12 +329,14 @@ class ArticleRepositoryTest {
     )
 
     repo.refresh()
+    val result = repo.translateArticle(1)
 
-    assertTrue(dao.inserted.isEmpty())
+    assertEquals(result?.summaryOriginal, result?.summaryTranslated)
+    assertEquals(result?.contentOriginal, result?.contentTranslated)
   }
 
   @Test
-  fun refreshFallsBackToAiOnErrorStatus() = runTest {
+  fun translateArticleFallsBackToAiOnErrorStatus() = runTest {
     val dao = FakeArticleDao()
     val repo = ArticleRepository(
       wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
@@ -318,9 +357,9 @@ class ArticleRepositoryTest {
     )
 
     repo.refresh()
+    val result = repo.translateArticle(1)
 
-    assertEquals(1, dao.inserted.size)
-    assertEquals("hola", dao.inserted.first().translatedWord)
+    assertEquals("hola", result?.translatedWord)
   }
 }
 

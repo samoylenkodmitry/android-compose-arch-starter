@@ -39,6 +39,7 @@ interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
   suspend fun refresh()
   suspend fun article(id: Int): ArticleEntity?
+  suspend fun translateArticle(id: Int): ArticleEntity?
   suspend fun translate(word: String): String?
 }
 
@@ -61,14 +62,42 @@ class ArticleRepository @Inject constructor(
       .getOrElse { return }
       .takeIf { it.isNotBlank() } ?: return
 
+    val entity = ArticleEntity(
+      id = summary.pageid,
+      title = summary.title,
+      summaryOriginal = summaryText,
+      summaryTranslated = null,
+      contentOriginal = summary.extract,
+      contentTranslated = null,
+      originalWord = null,
+      translatedWord = null,
+      ipa = null,
+      sourceUrl = summary.contentUrls.desktop.page,
+      createdAt = System.currentTimeMillis()
+    )
+    dao.insert(entity)
+  }
+
+  override suspend fun article(id: Int): ArticleEntity? = dao.getArticle(id)
+
+  override suspend fun translateArticle(id: Int): ArticleEntity? {
+    val current = dao.getArticle(id) ?: return null
+
+    if (current.summaryTranslated != null && current.contentTranslated != null) {
+      return current
+    }
+
+    val summaryText = current.summaryOriginal
+    val contentText = current.contentOriginal
+
     val state = settings.state.value
     val nativeLanguage = state.nativeLanguage
     val learningLanguage = state.learningLanguage
-    val nativeCode = languageCodes[nativeLanguage] ?: return
-    val learningCode = languageCodes[learningLanguage] ?: return
+    val nativeCode = languageCodes[nativeLanguage] ?: return current
+    val learningCode = languageCodes[learningLanguage] ?: return current
 
     val summaryLanguageCode = detectLanguageCode(summaryText)
-    val contentLanguageCode = detectLanguageCode(summary.extract)
+    val contentLanguageCode = detectLanguageCode(contentText)
 
     val summarySourceCode = summaryLanguageCode ?: contentLanguageCode ?: nativeCode
     val contentSourceCode = contentLanguageCode ?: summaryLanguageCode ?: nativeCode
@@ -84,24 +113,24 @@ class ArticleRepository @Inject constructor(
         langPair = "$summarySourceCode|$nativeCode",
         sourceLanguage = summarySourceLanguage,
         targetLanguage = nativeLanguage
-      ) ?: return
+      ) ?: return current
     }
 
     val translatedContent = if (contentSourceCode == nativeCode) {
-      summary.extract
+      contentText
     } else {
       translateWithFallback(
-        word = summary.extract,
+        word = contentText,
         langPair = "$contentSourceCode|$nativeCode",
         sourceLanguage = contentSourceLanguage,
         targetLanguage = nativeLanguage
-      ) ?: return
+      ) ?: return current
     }
 
     val words = translatedContent.split("\\W+".toRegex()).filter { it.length > 3 }
-    val nativeWord = words.randomOrNull() ?: return
+    val nativeWord = words.randomOrNull()
 
-    val learningTranslation = if (nativeCode == learningCode) {
+    val learningTranslation = if (nativeWord == null || nativeCode == learningCode) {
       nativeWord
     } else {
       translateWithFallback(
@@ -109,10 +138,10 @@ class ArticleRepository @Inject constructor(
         langPair = "$nativeCode|$learningCode",
         sourceLanguage = nativeLanguage,
         targetLanguage = learningLanguage
-      ) ?: return
+      ) ?: nativeWord
     }
 
-    val ipa = if (nativeCode == "en") {
+    val ipa = if (nativeCode == "en" && nativeWord != null) {
       runCatching {
         dictionary.lookup(nativeWord).firstOrNull()?.phonetics?.firstOrNull()?.text
       }.getOrNull()
@@ -120,26 +149,22 @@ class ArticleRepository @Inject constructor(
       null
     }
 
-    val replaced = if (learningTranslation == nativeWord) {
-      translatedContent
-    } else {
+    val replaced = if (nativeWord != null && learningTranslation != null && learningTranslation != nativeWord) {
       translatedContent.replaceFirst(nativeWord, "$nativeWord ($learningTranslation)")
+    } else {
+      translatedContent
     }
-    val entity = ArticleEntity(
-      id = summary.pageid,
-      title = summary.title,
-      summary = translatedSummary,
-      content = replaced,
-      sourceUrl = summary.contentUrls.desktop.page,
+
+    val updated = current.copy(
+      summaryTranslated = translatedSummary,
+      contentTranslated = replaced,
       originalWord = nativeWord,
       translatedWord = learningTranslation,
-      ipa = ipa,
-      createdAt = System.currentTimeMillis()
+      ipa = ipa
     )
-    dao.insert(entity)
+    dao.insert(updated)
+    return updated
   }
-
-  override suspend fun article(id: Int): ArticleEntity? = dao.getArticle(id)
 
   override suspend fun translate(word: String): String? {
     val state = settings.state.value
