@@ -7,11 +7,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
@@ -36,6 +42,12 @@ fun CatalogScreen(
   val listState = rememberLazyListState()
   val density = LocalDensity.current
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
+  var viewportOffset by remember { mutableStateOf(Offset.Zero) }
+  var bottomControlsHeight by remember { mutableStateOf(0.dp) }
+  var settingsButtonOffset by remember { mutableStateOf<Offset?>(null) }
+  var refreshButtonOffset by remember { mutableStateOf<Offset?>(null) }
+  var settingsButtonSize by remember { mutableStateOf<IntSize?>(null) }
+  var refreshButtonSize by remember { mutableStateOf<IntSize?>(null) }
   val centeredItemInfo by remember {
     derivedStateOf {
       val info = listState.layoutInfo
@@ -45,7 +57,8 @@ fun CatalogScreen(
       }
     }
   }
-  val targetGlassRect by remember {
+  val centerGlassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+  val targetGlassRect by remember(centerGlassTint) {
     derivedStateOf {
       val info = centeredItemInfo ?: return@derivedStateOf null
       if (viewportSize.width == 0 || viewportSize.height == 0) return@derivedStateOf null
@@ -60,6 +73,7 @@ fun CatalogScreen(
           top = clampedTopPx.toDp(),
           width = viewportSize.width.toDp(),
           height = info.size.toDp(),
+          tintColor = centerGlassTint,
         )
       }
     }
@@ -86,29 +100,134 @@ fun CatalogScreen(
       null
     }
   }
+  val centerGlassRect = remember(glassRect, viewportOffset, density) {
+    glassRect?.let { rect ->
+      val offsetX = with(density) { viewportOffset.x.toDp() }
+      val offsetY = with(density) { viewportOffset.y.toDp() }
+      rect.copy(left = rect.left + offsetX, top = rect.top + offsetY)
+    }
+  }
+  val buttonGlassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+  val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density, buttonGlassTint) {
+    val buttonOffset = settingsButtonOffset
+    val buttonSize = settingsButtonSize
+    if (buttonOffset == null || buttonSize == null) {
+      null
+    } else {
+      with(density) {
+        LiquidGlassRect(
+          left = buttonOffset.x.toDp(),
+          top = buttonOffset.y.toDp(),
+          width = buttonSize.width.toDp(),
+          height = buttonSize.height.toDp(),
+          tintColor = buttonGlassTint,
+        )
+      }
+    }
+  }
+  val refreshGlassRect = remember(refreshButtonOffset, refreshButtonSize, density, buttonGlassTint) {
+    val buttonOffset = refreshButtonOffset
+    val buttonSize = refreshButtonSize
+    if (buttonOffset == null || buttonSize == null) {
+      null
+    } else {
+      with(density) {
+        LiquidGlassRect(
+          left = buttonOffset.x.toDp(),
+          top = buttonOffset.y.toDp(),
+          width = buttonSize.width.toDp(),
+          height = buttonSize.height.toDp(),
+          tintColor = buttonGlassTint,
+        )
+      }
+    }
+  }
+  val listBottomPadding = 32.dp + bottomControlsHeight
+  val glassRects = remember(centerGlassRect, settingsGlassRect, refreshGlassRect) {
+    listOfNotNull(centerGlassRect, settingsGlassRect, refreshGlassRect)
+  }
 
-  Column(Modifier.fillMaxSize().padding(16.dp)) {
-    Text("Catalog", style = MaterialTheme.typography.titleLarge)
-    Spacer(Modifier.height(8.dp))
-    Button(onClick = p::onSettingsClick) { Text("Settings") }
-    Spacer(Modifier.height(8.dp))
-    Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
-    Spacer(Modifier.height(8.dp))
-    Box(Modifier.weight(1f)) {
-      LiquidGlassRectOverlay(
-        rect = glassRect,
+  Box(Modifier.fillMaxSize()) {
+    LiquidGlassRectOverlay(
+      rects = glassRects,
+      modifier = Modifier.fillMaxSize()
+    ) {
+      Column(
         modifier = Modifier
           .fillMaxSize()
-          .onSizeChanged { viewportSize = it }
+          .padding(horizontal = 16.dp, vertical = 16.dp)
       ) {
-        LazyColumn(
-          state = listState,
-          contentPadding = PaddingValues(bottom = 8.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
+        Text("Catalog", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .onGloballyPositioned { coords -> viewportOffset = coords.positionInRoot() }
+            .onSizeChanged { viewportSize = it }
         ) {
-          items(state.items, key = { it }) { id ->
-            CatalogItemCard(id = id)
+          LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(bottom = listBottomPadding),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            items(state.items, key = { it }) { id ->
+              CatalogItemCard(id = id)
+            }
           }
+        }
+      }
+    }
+
+    val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+    val transparentButtonColors = ButtonDefaults.buttonColors(
+      containerColor = Color.Transparent,
+      contentColor = MaterialTheme.colorScheme.onSurface,
+      disabledContainerColor = Color.Transparent,
+      disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    )
+    val transparentButtonElevation = ButtonDefaults.buttonElevation(
+      defaultElevation = 0.dp,
+      pressedElevation = 0.dp,
+      focusedElevation = 0.dp,
+      hoveredElevation = 0.dp,
+    )
+    Row(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .padding(horizontal = 16.dp, vertical = 8.dp)
+        .navigationBarsPadding()
+        .onSizeChanged { size ->
+          bottomControlsHeight = with(density) { size.height.toDp() }
+        },
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Box(
+        modifier = Modifier.onGloballyPositioned { coords ->
+          settingsButtonOffset = coords.positionInRoot()
+          settingsButtonSize = coords.size
+        }
+      ) {
+        Box(modifier = Modifier.padding(glassPadding)) {
+          Button(
+            onClick = p::onSettingsClick,
+            colors = transparentButtonColors,
+            elevation = transparentButtonElevation,
+          ) { Text("Settings") }
+        }
+      }
+      Box(
+        modifier = Modifier.onGloballyPositioned { coords ->
+          refreshButtonOffset = coords.positionInRoot()
+          refreshButtonSize = coords.size
+        }
+      ) {
+        Box(modifier = Modifier.padding(glassPadding)) {
+          Button(
+            onClick = p::onRefresh,
+            colors = transparentButtonColors,
+            elevation = transparentButtonElevation,
+          ) { Text("Refresh (${state.items.size})") }
         }
       }
     }
