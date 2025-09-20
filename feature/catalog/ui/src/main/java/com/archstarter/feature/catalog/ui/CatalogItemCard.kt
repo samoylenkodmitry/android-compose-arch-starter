@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.ProvidePresenter
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.CatalogItem
@@ -23,9 +24,16 @@ import kotlinx.coroutines.flow.StateFlow
 fun CatalogItemCard(
   id: Int,
   modifier: Modifier = Modifier,
-  presenter: CatalogItemPresenter? = null,
 ) {
-  val p = presenter ?: rememberPresenter<CatalogItemPresenter, Int>(key = "item$id", params = id)
+  CatalogItemCardWithPresenter(id = id, modifier = modifier)
+}
+
+@Composable
+private fun CatalogItemCardWithPresenter(
+  id: Int,
+  modifier: Modifier,
+) {
+  val p = rememberPresenter<CatalogItemPresenter, Int>(key = "item$id", params = id)
   val state by p.state.collectAsStateWithLifecycle()
   CatalogItemCardContent(
     state = state,
@@ -56,11 +64,15 @@ private class FakeCatalogItemPresenter : CatalogItemPresenter {
   private val _s = MutableStateFlow(CatalogItem(1, "Alpha", "Summary"))
   override val state: StateFlow<CatalogItem> = _s
   override fun onClick() {}
-  override fun initOnce(params: Int) {}
+  override fun initOnce(params: Int?) {}
 }
 
 @Preview
 @Composable
 private fun PreviewCatalogItemCard() {
-  AppTheme { CatalogItemCard(id = 1, presenter = FakeCatalogItemPresenter()) }
+  AppTheme {
+    ProvidePresenter<CatalogItemPresenter>(FakeCatalogItemPresenter(), key = "item1") {
+      CatalogItemCard(id = 1)
+    }
+  }
 }

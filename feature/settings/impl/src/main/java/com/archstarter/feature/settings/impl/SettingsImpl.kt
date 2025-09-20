@@ -69,7 +69,7 @@ class SettingsViewModel @AssistedInject constructor(
         }
     }
 
-    override fun initOnce(params: Unit) {
+    override fun initOnce(params: Unit?) {
     }
 
     @AssistedFactory

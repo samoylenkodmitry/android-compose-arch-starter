@@ -21,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.ProvidePresenter
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
@@ -39,8 +40,13 @@ import java.util.Locale
 internal const val DETAIL_DISPLAY_PAD_CHAR: Char = '\u00A0'
 
 @Composable
-fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
-  val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
+fun DetailScreen(id: Int) {
+  DetailScreenContent(id)
+}
+
+@Composable
+private fun DetailScreenContent(id: Int) {
+  val p = rememberPresenter<DetailPresenter, Int>(params = id)
   val state by p.state.collectAsStateWithLifecycle()
   val density = LocalDensity.current
   val highlightPaddingX = 12.dp
@@ -195,7 +201,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
 private class FakeDetailPresenter : DetailPresenter {
   private val _s = MutableStateFlow(DetailState(title = "Preview", content = "Content"))
   override val state: StateFlow<DetailState> = _s
-  override fun initOnce(params: Int) {}
+  override fun initOnce(params: Int?) {}
   override fun translate(word: String) {}
 }
 
@@ -479,5 +485,9 @@ private fun TextLayoutResult.toLiquidRect(
 @Preview(showBackground = true)
 @Composable
 private fun PreviewDetail() {
-  AppTheme { DetailScreen(id = 1, presenter = FakeDetailPresenter()) }
+  AppTheme {
+    ProvidePresenter<DetailPresenter>(FakeDetailPresenter()) {
+      DetailScreen(id = 1)
+    }
+  }
 }
