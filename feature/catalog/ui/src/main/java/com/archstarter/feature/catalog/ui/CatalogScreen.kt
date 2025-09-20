@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
@@ -103,7 +105,8 @@ fun CatalogScreen(
       rect.copy(left = rect.left + offsetX, top = rect.top + offsetY)
     }
   }
-  val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density) {
+  val buttonGlassTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+  val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density, buttonGlassTint) {
     val buttonOffset = settingsButtonOffset
     val buttonSize = settingsButtonSize
     if (buttonOffset == null || buttonSize == null) {
@@ -115,11 +118,12 @@ fun CatalogScreen(
           top = buttonOffset.y.toDp(),
           width = buttonSize.width.toDp(),
           height = buttonSize.height.toDp(),
+          tintColor = buttonGlassTint,
         )
       }
     }
   }
-  val refreshGlassRect = remember(refreshButtonOffset, refreshButtonSize, density) {
+  val refreshGlassRect = remember(refreshButtonOffset, refreshButtonSize, density, buttonGlassTint) {
     val buttonOffset = refreshButtonOffset
     val buttonSize = refreshButtonSize
     if (buttonOffset == null || buttonSize == null) {
@@ -131,6 +135,7 @@ fun CatalogScreen(
           top = buttonOffset.y.toDp(),
           width = buttonSize.width.toDp(),
           height = buttonSize.height.toDp(),
+          tintColor = buttonGlassTint,
         )
       }
     }
@@ -172,6 +177,18 @@ fun CatalogScreen(
     }
 
     val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+    val transparentButtonColors = ButtonDefaults.buttonColors(
+      containerColor = Color.Transparent,
+      contentColor = MaterialTheme.colorScheme.onSurface,
+      disabledContainerColor = Color.Transparent,
+      disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    )
+    val transparentButtonElevation = ButtonDefaults.buttonElevation(
+      defaultElevation = 0.dp,
+      pressedElevation = 0.dp,
+      focusedElevation = 0.dp,
+      hoveredElevation = 0.dp,
+    )
     Row(
       modifier = Modifier
         .align(Alignment.BottomCenter)
@@ -190,7 +207,11 @@ fun CatalogScreen(
         }
       ) {
         Box(modifier = Modifier.padding(glassPadding)) {
-          Button(onClick = p::onSettingsClick) { Text("Settings") }
+          Button(
+            onClick = p::onSettingsClick,
+            colors = transparentButtonColors,
+            elevation = transparentButtonElevation,
+          ) { Text("Settings") }
         }
       }
       Box(
@@ -200,7 +221,11 @@ fun CatalogScreen(
         }
       ) {
         Box(modifier = Modifier.padding(glassPadding)) {
-          Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
+          Button(
+            onClick = p::onRefresh,
+            colors = transparentButtonColors,
+            elevation = transparentButtonElevation,
+          ) { Text("Refresh (${state.items.size})") }
         }
       }
     }

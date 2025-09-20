@@ -21,7 +21,9 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -42,6 +44,7 @@ uniform float  u_scale;
 uniform float  u_ri;
 uniform float  u_profile;
 uniform float  u_highlight;
+uniform float4 u_tintColor;
 
 float sdRoundRect(float2 p, float2 halfWH, float r) {
     float2 q = abs(p) - (halfWH - float2(r));
@@ -87,6 +90,9 @@ half4 main(float2 coord) {
     half4 spec = half4(1.0, 1.0, 1.0, specA);
     half4 base = refr;
     half4 outc = base + spec * spec.a * 0.85;
+    half tintA = half(clamp(u_tintColor.w, 0.0, 1.0));
+    half3 tintRgb = half3(u_tintColor.rgb);
+    outc.rgb = mix(outc.rgb, tintRgb, tintA);
     return outc;
 }
 """
@@ -107,6 +113,7 @@ data class LiquidGlassRect(
     val top: Dp,
     val width: Dp,
     val height: Dp,
+    val tintColor: Color = Color.Transparent,
 ) {
     val isEmpty: Boolean get() = width <= 0.dp || height <= 0.dp
 }
@@ -135,10 +142,11 @@ fun LiquidGlassRectOverlay(
 ) {
     val density = LocalDensity.current
     var containerSize by remember { mutableStateOf(Size.Zero) }
-    val rectsPx = remember(rects, density) {
+    var overlayOffset by remember { mutableStateOf(Offset.Zero) }
+    val rectsPx = remember(rects, density, overlayOffset) {
         rects
             .filterNot { it.isEmpty }
-            .map { it.toRect(density) }
+            .map { it.toRuntimeRect(density, overlayOffset) }
     }
     val renderEffect = remember(rectsPx, containerSize, spec, density) {
         if (Build.VERSION.SDK_INT >= 33) {
@@ -163,6 +171,7 @@ fun LiquidGlassRectOverlay(
     Box(
         modifier
             .onSizeChanged { containerSize = Size(it.width.toFloat(), it.height.toFloat()) }
+            .onGloballyPositioned { overlayOffset = it.positionInRoot() }
             .then(layerModifier)
             .drawWithContent {
                 drawContent()
@@ -175,17 +184,29 @@ fun LiquidGlassRectOverlay(
     }
 }
 
-private fun LiquidGlassRect.toRect(density: Density): Rect = with(density) {
-    val leftPx = left.toPx()
-    val topPx = top.toPx()
+private data class LiquidGlassRuntimeRect(
+    val rect: Rect,
+    val tintColor: Color,
+)
+
+private fun LiquidGlassRect.toRuntimeRect(
+    density: Density,
+    overlayOffset: Offset,
+): LiquidGlassRuntimeRect = with(density) {
     val widthPx = width.toPx()
     val heightPx = height.toPx()
-    Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx)
+    val leftPx = left.toPx() - overlayOffset.x
+    val topPx = top.toPx() - overlayOffset.y
+    LiquidGlassRuntimeRect(
+        rect = Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx),
+        tintColor = tintColor,
+    )
 }
 
-private fun DrawScope.drawFallbackGlass(rects: List<Rect>, spec: LiquidGlassSpec) {
+private fun DrawScope.drawFallbackGlass(rects: List<LiquidGlassRuntimeRect>, spec: LiquidGlassSpec) {
     val corner = androidx.compose.ui.geometry.CornerRadius(spec.cornerRadius.toPx())
-    rects.forEach { rect ->
+    rects.forEach { entry ->
+        val rect = entry.rect
         val topLeft = Offset(rect.left, rect.top)
         val size = Size(rect.width, rect.height)
         drawRoundRect(
@@ -200,11 +221,19 @@ private fun DrawScope.drawFallbackGlass(rects: List<Rect>, spec: LiquidGlassSpec
             size = size,
             cornerRadius = corner
         )
+        if (entry.tintColor.alpha > 0f) {
+            drawRoundRect(
+                color = entry.tintColor,
+                topLeft = topLeft,
+                size = size,
+                cornerRadius = corner
+            )
+        }
     }
 }
 
 private fun createRuntimeEffect(
-    rects: List<Rect>,
+    rects: List<LiquidGlassRuntimeRect>,
     containerSize: Size,
     spec: LiquidGlassSpec,
     density: Density,
@@ -216,7 +245,8 @@ private fun createRuntimeEffect(
     val bezel = max(1f, with(density) { spec.bezelWidth.toPx() })
 
     var chainedEffect: RenderEffect? = null
-    rects.take(MAX_GLASSES).forEach { rect ->
+    rects.take(MAX_GLASSES).forEach { runtimeRect ->
+        val rect = runtimeRect.rect
         val shader = RuntimeShader(LIQUID_GLASS_AGSL)
         shader.setFloatUniform("u_size", containerSize.width, containerSize.height)
         shader.setFloatUniform("u_center", rect.center.x, rect.center.y)
@@ -227,6 +257,13 @@ private fun createRuntimeEffect(
         shader.setFloatUniform("u_ri", spec.refractiveIndex)
         shader.setFloatUniform("u_profile", spec.profile)
         shader.setFloatUniform("u_highlight", spec.highlight)
+        shader.setFloatUniform(
+            "u_tintColor",
+            runtimeRect.tintColor.red,
+            runtimeRect.tintColor.green,
+            runtimeRect.tintColor.blue,
+            runtimeRect.tintColor.alpha,
+        )
 
         val effect = RenderEffect.createRuntimeShaderEffect(shader, "background")
         chainedEffect = if (chainedEffect == null) {
