@@ -27,4 +27,6 @@ dependencies {
   implementation(libs.compose.preview)
   implementation(libs.lifecycle.runtime.compose)
   debugImplementation(libs.compose.tooling)
+
+  testImplementation(libs.junit)
 }

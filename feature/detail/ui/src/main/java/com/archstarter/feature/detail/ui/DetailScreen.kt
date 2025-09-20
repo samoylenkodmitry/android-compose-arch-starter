@@ -32,6 +32,8 @@ import kotlin.math.max
 import kotlin.math.min
 import java.util.Locale
 
+internal const val DETAIL_DISPLAY_PAD_CHAR: Char = '\u00A0'
+
 @Composable
 fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
@@ -187,11 +189,11 @@ private class FakeDetailPresenter : DetailPresenter {
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float)
 
-private data class TextBounds(val start: Int, val end: Int) {
+internal data class TextBounds(val start: Int, val end: Int) {
   val length: Int get() = end - start
 }
 
-private data class WordEntry(
+internal data class WordEntry(
   val index: Int,
   val start: Int,
   val end: Int,
@@ -201,17 +203,17 @@ private data class WordEntry(
   val suffix: String
 )
 
-private data class DisplayContent(
+internal data class DisplayContent(
   val text: String,
   val bounds: List<DisplayWordBounds>
 )
 
-private data class DisplayWordBounds(val index: Int, val start: Int, val end: Int) {
+internal data class DisplayWordBounds(val index: Int, val start: Int, val end: Int) {
   fun contains(offset: Int): Boolean = offset in start until end
   val textBounds: TextBounds get() = TextBounds(start, end)
 }
 
-private fun String.toWordEntries(): List<WordEntry> {
+internal fun String.toWordEntries(): List<WordEntry> {
   if (isEmpty()) return emptyList()
   val entries = mutableListOf<WordEntry>()
   var index = 0
@@ -257,7 +259,11 @@ private fun String.toWordEntries(): List<WordEntry> {
   return entries
 }
 
-private fun buildDisplayContent(
+private fun StringBuilder.appendPadding(count: Int) {
+  repeat(count) { append(DETAIL_DISPLAY_PAD_CHAR) }
+}
+
+internal fun buildDisplayContent(
   content: String,
   words: List<WordEntry>,
   highlightIndex: Int?,
@@ -294,7 +300,7 @@ private fun buildDisplayContent(
         append(displayCore)
         append(entry.suffix)
         if (targetLength > displayCore.length) {
-          repeat(targetLength - displayCore.length) { append(' ') }
+          appendPadding(targetLength - displayCore.length)
         }
       }
     }
