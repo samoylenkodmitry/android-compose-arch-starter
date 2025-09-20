@@ -2,7 +2,10 @@ package com.archstarter.feature.detail.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +49,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
   val state by p.state.collectAsStateWithLifecycle()
   val density = LocalDensity.current
+  val scrollState = rememberScrollState()
   val highlightPaddingX = 12.dp
   val highlightPaddingY = 6.dp
   val highlightPaddingXPx = with(density) { highlightPaddingX.toPx() }
@@ -76,7 +80,12 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
     }
   }
 
-  Column(Modifier.padding(16.dp)) {
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .verticalScroll(scrollState)
+      .padding(16.dp)
+  ) {
     Text(state.title, style = MaterialTheme.typography.titleLarge)
     val content = state.content
     val words = remember(content) { content.toWordEntries() }
