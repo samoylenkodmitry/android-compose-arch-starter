@@ -29,9 +29,13 @@ import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
-import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+private const val TOP_SPACER_KEY = "catalog_top_spacer"
+private const val BOTTOM_SPACER_KEY = "catalog_bottom_spacer"
 
 @Composable
 fun CatalogScreen(
@@ -52,8 +56,15 @@ fun CatalogScreen(
     derivedStateOf {
       val info = listState.layoutInfo
       val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2
-      info.visibleItemsInfo.minByOrNull {
-        abs((it.offset + it.size / 2) - viewportCenter)
+      val visibleItems = info.visibleItemsInfo.filterNot { item ->
+        item.key == TOP_SPACER_KEY || item.key == BOTTOM_SPACER_KEY
+      }
+      if (visibleItems.isEmpty()) {
+        null
+      } else {
+        visibleItems.minByOrNull {
+          abs((it.offset + it.size / 2) - viewportCenter)
+        }
       }
     }
   }
@@ -143,8 +154,45 @@ fun CatalogScreen(
     }
   }
   val listBottomPadding = 32.dp + bottomControlsHeight
+  val itemSpacing = 8.dp
+  val centerItemPadding = run {
+    val viewportHeightPx = viewportSize.height
+    val itemHeightPx = centeredItemInfo?.size ?: 0
+    if (viewportHeightPx <= 0 || itemHeightPx <= 0) {
+      0.dp
+    } else {
+      val extraPx = (viewportHeightPx / 2f - itemHeightPx / 2f).coerceAtLeast(0f)
+      with(density) { extraPx.toDp() }
+    }
+  }
+  val edgeSpacerHeight = if (centerItemPadding > itemSpacing) {
+    centerItemPadding - itemSpacing
+  } else {
+    0.dp
+  }
   val glassRects = remember(centerGlassRect, settingsGlassRect, refreshGlassRect) {
     listOfNotNull(centerGlassRect, settingsGlassRect, refreshGlassRect)
+  }
+
+  LaunchedEffect(listState) {
+    snapshotFlow { listState.isScrollInProgress to centeredItemInfo }
+      .collect { (isScrolling, targetInfo) ->
+        if (!isScrolling) {
+          val layoutInfo = listState.layoutInfo
+          val itemInfo = targetInfo ?: return@collect
+          if (layoutInfo.visibleItemsInfo.isEmpty()) return@collect
+          val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+          val itemCenter = itemInfo.offset + itemInfo.size / 2f
+          val diff = itemCenter - viewportCenter
+          if (abs(diff) > 1f) {
+            val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            val desiredOffset = (itemInfo.offset - diff).roundToInt()
+            val maxOffset = (viewportHeight - itemInfo.size).coerceAtLeast(0)
+            val clampedOffset = desiredOffset.coerceIn(0, maxOffset)
+            listState.animateScrollToItem(itemInfo.index, clampedOffset)
+          }
+        }
+      }
   }
 
   Box(Modifier.fillMaxSize()) {
@@ -168,10 +216,16 @@ fun CatalogScreen(
           LazyColumn(
             state = listState,
             contentPadding = PaddingValues(bottom = listBottomPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(itemSpacing)
           ) {
+            item(key = TOP_SPACER_KEY) {
+              Spacer(Modifier.height(edgeSpacerHeight))
+            }
             items(state.items, key = { it }) { id ->
               CatalogItemCard(id = id)
+            }
+            item(key = BOTTOM_SPACER_KEY) {
+              Spacer(Modifier.height(edgeSpacerHeight))
             }
           }
         }
