@@ -4,7 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +26,7 @@ import com.archstarter.feature.catalog.api.CatalogState
 import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.roundToInt
 
 @Composable
 fun CatalogScreen(
@@ -40,8 +41,21 @@ fun CatalogScreen(
     derivedStateOf {
       val info = listState.layoutInfo
       val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2
-      info.visibleItemsInfo.minByOrNull {
-        abs((it.offset + it.size / 2) - viewportCenter)
+      info.visibleItemsInfo
+        .filterNot { it.key == TOP_SPACER_KEY || it.key == BOTTOM_SPACER_KEY }
+        .minByOrNull {
+          abs((it.offset + it.size / 2) - viewportCenter)
+        }
+    }
+  }
+  val centerPaddingDp by remember {
+    derivedStateOf {
+      val viewportHeight = viewportSize.height
+      val itemSize = centeredItemInfo?.size ?: 0
+      if (viewportHeight == 0 || itemSize == 0) {
+        0.dp
+      } else {
+        with(density) { ((viewportHeight - itemSize) / 2f).coerceAtLeast(0f).toDp() }
       }
     }
   }
@@ -87,6 +101,23 @@ fun CatalogScreen(
     }
   }
 
+  LaunchedEffect(listState.isScrollInProgress) {
+    if (!listState.isScrollInProgress) {
+      val layoutInfo = listState.layoutInfo
+      val info = centeredItemInfo ?: return@LaunchedEffect
+      val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+      val itemCenter = info.offset + info.size / 2f
+      val difference = itemCenter - viewportCenter
+      if (abs(difference) > 0.5f) {
+        val desiredTop = viewportCenter - info.size / 2f
+        val scrollOffset = (desiredTop - layoutInfo.viewportStartOffset)
+          .coerceAtLeast(0f)
+          .roundToInt()
+        listState.animateScrollToItem(index = info.index, scrollOffset = scrollOffset)
+      }
+    }
+  }
+
   Column(Modifier.fillMaxSize().padding(16.dp)) {
     Text("Catalog", style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(8.dp))
@@ -103,17 +134,29 @@ fun CatalogScreen(
       ) {
         LazyColumn(
           state = listState,
-          contentPadding = PaddingValues(bottom = 8.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          items(state.items, key = { it }) { id ->
-            CatalogItemCard(id = id)
+          item(key = TOP_SPACER_KEY) {
+            Spacer(Modifier.height(centerPaddingDp))
+          }
+          itemsIndexed(state.items, key = { _, id -> id }) { index, id ->
+            Column {
+              if (index > 0) {
+                Spacer(Modifier.height(8.dp))
+              }
+              CatalogItemCard(id = id)
+            }
+          }
+          item(key = BOTTOM_SPACER_KEY) {
+            Spacer(Modifier.height(centerPaddingDp))
           }
         }
       }
     }
   }
 }
+
+private const val TOP_SPACER_KEY = "top_spacer"
+private const val BOTTOM_SPACER_KEY = "bottom_spacer"
 
 // ---- Fake for preview (no Hilt in UI module) ----
 private class FakeCatalogPresenter : CatalogPresenter {
