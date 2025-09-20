@@ -129,15 +129,15 @@ fun CatalogScreen(
         val viewportStart = frame.viewportStart.toFloat()
         val viewportEnd = frame.viewportEnd.toFloat()
         if (viewportEnd <= viewportStart) return@collect
-        val viewportCenter = (viewportStart + viewportEnd) / 2f
+        val viewportSize = viewportEnd - viewportStart
+        val viewportCenter = viewportStart + viewportSize / 2f
         val itemCenter = info.offset + info.size / 2f
         val difference = itemCenter - viewportCenter
         if (abs(difference) > 0.5f) {
-          val viewportSize = viewportEnd - viewportStart
-          val minTop = viewportStart
-          val maxTop = (viewportStart + viewportSize - info.size).coerceAtLeast(minTop)
-          val desiredTop = (viewportCenter - info.size / 2f).coerceIn(minTop, maxTop)
-          val scrollOffset = (desiredTop - viewportStart).roundToInt()
+          val halfViewport = viewportSize / 2f
+          val desiredOffset = (halfViewport - info.size / 2f)
+            .coerceIn(0f, (viewportSize - info.size).coerceAtLeast(0f))
+          val scrollOffset = desiredOffset.roundToInt()
           didSnapThisInteraction = true
           snapInProgress = true
           try {
