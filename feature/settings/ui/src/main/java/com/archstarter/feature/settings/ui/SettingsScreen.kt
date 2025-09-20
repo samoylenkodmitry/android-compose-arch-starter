@@ -1,6 +1,6 @@
 package com.archstarter.feature.settings.ui
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -17,11 +17,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
@@ -72,8 +74,7 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
             onDismissRequest = {
                 expanded = false
                 searchQuery = ""
-            },
-            modifier = Modifier.animateContentSize()
+            }
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -86,17 +87,45 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                     .fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
-            if (filteredLanguages.isEmpty()) {
-                DropdownMenuItem(
-                    text = { Text("No languages found") },
-                    enabled = false,
-                    onClick = {},
-                )
-            } else {
+            val showEmptyState = filteredLanguages.isEmpty()
+            val listAlpha by animateFloatAsState(
+                targetValue = if (showEmptyState) 0f else 1f,
+                label = "languageListAlpha"
+            )
+            val emptyAlpha by animateFloatAsState(
+                targetValue = if (showEmptyState) 1f else 0f,
+                label = "emptyStateAlpha"
+            )
+
+            var listVisible by remember { mutableStateOf(!showEmptyState) }
+            var emptyVisible by remember { mutableStateOf(showEmptyState) }
+
+            LaunchedEffect(showEmptyState) {
+                if (showEmptyState) {
+                    emptyVisible = true
+                } else {
+                    listVisible = true
+                }
+            }
+
+            LaunchedEffect(listAlpha, showEmptyState) {
+                if (showEmptyState && listAlpha <= 0.01f) {
+                    listVisible = false
+                }
+            }
+
+            LaunchedEffect(emptyAlpha, showEmptyState) {
+                if (!showEmptyState && emptyAlpha <= 0.01f) {
+                    emptyVisible = false
+                }
+            }
+
+            if (listVisible) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
+                        .alpha(listAlpha)
                 ) {
                     items(filteredLanguages, key = { it }) { lang ->
                         DropdownMenuItem(
@@ -109,6 +138,15 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                         )
                     }
                 }
+            }
+
+            if (emptyVisible) {
+                DropdownMenuItem(
+                    modifier = Modifier.alpha(emptyAlpha),
+                    text = { Text("No languages found") },
+                    enabled = false,
+                    onClick = {},
+                )
             }
         }
     }
