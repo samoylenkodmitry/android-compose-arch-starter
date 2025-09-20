@@ -21,10 +21,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.ProvidePresenterMocks
-import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.presenterMocksOf
+import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
@@ -206,6 +205,11 @@ private class FakeDetailPresenter : DetailPresenter {
   override fun initOnce(params: Int?) {}
   override fun translate(word: String) {}
 }
+
+@Suppress("unused")
+private val detailPreviewMocks = registerPresenterMocks(
+  presenterMock<DetailPresenter> { FakeDetailPresenter() },
+)
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float)
 
@@ -488,14 +492,6 @@ private fun TextLayoutResult.toLiquidRect(
 @Composable
 private fun PreviewDetail() {
   AppTheme {
-    val presenter = remember { FakeDetailPresenter() }
-    val mocks = remember(presenter) {
-      presenterMocksOf(
-        presenterMock<DetailPresenter> { presenter },
-      )
-    }
-    ProvidePresenterMocks(mocks) {
-      DetailScreen(id = 1)
-    }
+    DetailScreen(id = 1)
   }
 }

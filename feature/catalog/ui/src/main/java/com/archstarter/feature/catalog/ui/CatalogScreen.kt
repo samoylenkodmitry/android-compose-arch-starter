@@ -23,17 +23,14 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.tooling.preview.Preview
-import com.archstarter.core.common.presenter.ProvidePresenterMocks
-import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.presenterMocksOf
+import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
-import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
-import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -246,32 +243,21 @@ private fun CatalogScreenContent() {
 private class FakeCatalogPresenter : CatalogPresenter {
   private val _s = MutableStateFlow(CatalogState(listOf(1)))
   override val state: StateFlow<CatalogState> = _s
-  override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + (_s.value.items.size+1)) }
+  override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + (_s.value.items.size + 1)) }
   override fun onItemClick(id: Int) {}
   override fun onSettingsClick() {}
   override fun initOnce(params: Unit?) {}
 }
 
+@Suppress("unused")
+private val catalogPreviewMocks = registerPresenterMocks(
+  presenterMock<CatalogPresenter> { FakeCatalogPresenter() },
+)
+
 @Preview(showBackground = true)
 @Composable
 private fun PreviewCatalog() {
   AppTheme {
-    val catalogPresenter = remember { FakeCatalogPresenter() }
-    val mocks = remember(catalogPresenter) {
-      presenterMocksOf(
-        presenterMock<CatalogPresenter> { catalogPresenter },
-        presenterMock<CatalogItemPresenter> { PreviewCatalogItemPresenter() },
-      )
-    }
-    ProvidePresenterMocks(mocks) {
-      CatalogScreen()
-    }
+    CatalogScreen()
   }
-}
-
-private class PreviewCatalogItemPresenter : CatalogItemPresenter {
-  private val _s = MutableStateFlow(CatalogItem(1, "Alpha", "Summary"))
-  override val state: StateFlow<CatalogItem> = _s
-  override fun onClick() {}
-  override fun initOnce(params: Int?) {}
 }

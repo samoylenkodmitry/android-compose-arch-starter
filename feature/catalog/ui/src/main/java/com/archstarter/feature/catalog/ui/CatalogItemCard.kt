@@ -8,15 +8,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.ProvidePresenterMocks
-import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.presenterMocksOf
+import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
@@ -67,21 +65,21 @@ private class FakeCatalogItemPresenter : CatalogItemPresenter {
   private val _s = MutableStateFlow(CatalogItem(1, "Alpha", "Summary"))
   override val state: StateFlow<CatalogItem> = _s
   override fun onClick() {}
-  override fun initOnce(params: Int?) {}
+  override fun initOnce(params: Int?) {
+    val id = params ?: return
+    _s.value = CatalogItem(id, "Item $id", "Summary for item #$id")
+  }
 }
+
+@Suppress("unused")
+private val catalogItemPreviewMocks = registerPresenterMocks(
+  presenterMock<CatalogItemPresenter> { FakeCatalogItemPresenter() },
+)
 
 @Preview
 @Composable
 private fun PreviewCatalogItemCard() {
   AppTheme {
-    val presenter = remember { FakeCatalogItemPresenter() }
-    val mocks = remember(presenter) {
-      presenterMocksOf(
-        presenterMock<CatalogItemPresenter>(key = "item1") { presenter },
-      )
-    }
-    ProvidePresenterMocks(mocks) {
-      CatalogItemCard(id = 1)
-    }
+    CatalogItemCard(id = 1)
   }
 }
