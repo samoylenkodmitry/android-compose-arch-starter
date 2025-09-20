@@ -24,6 +24,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,13 +37,14 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.LinkedHashMap
 import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DetailViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
-    @Assisted private val handle: SavedStateHandle
+    @Assisted private val handle: SavedStateHandle,
 ) : ViewModel(), DetailPresenter {
 
     init {
@@ -51,13 +53,17 @@ class DetailViewModel @AssistedInject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        prefetchJob?.cancel()
         println("DetailsViewModel clear vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
     }
+
     private val articleIds = MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
     private val translationRequests = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     private val highlightState = MutableStateFlow(Highlight())
+    private val wordTranslations = MutableStateFlow<Map<String, String>>(emptyMap())
     private val translationCache = mutableMapOf<String, String>()
     private var announcedArticleId: Int? = null
+    private var prefetchJob: Job? = null
 
     private val articleState = articleIds
         .flatMapLatest { id -> repo.article(id) }
@@ -65,7 +71,7 @@ class DetailViewModel @AssistedInject constructor(
 
     private val articles = articleState.filterNotNull()
 
-    override val state: StateFlow<DetailState> = combine(articles, highlightState) { entity, highlight ->
+    override val state: StateFlow<DetailState> = combine(articles, highlightState, wordTranslations) { entity, highlight, translations ->
         val content = entity.contentTranslated ?: entity.contentOriginal
         DetailState(
             title = entity.title,
@@ -75,12 +81,13 @@ class DetailViewModel @AssistedInject constructor(
             translatedWord = entity.translatedWord.orEmpty(),
             ipa = entity.ipa,
             highlightedWord = highlight.word,
-            highlightedTranslation = highlight.translation
+            highlightedTranslation = highlight.translation,
+            wordTranslations = translations,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = DetailState()
+        initialValue = DetailState(),
     )
 
     init {
@@ -90,7 +97,8 @@ class DetailViewModel @AssistedInject constructor(
 
         articles
             .onEach { entity ->
-                cacheTranslation(entity.originalWord.orEmpty(), entity.translatedWord.orEmpty())
+                cacheTranslation(entity.originalWord, entity.translatedWord)
+                prefetchContentTranslations(entity.contentTranslated ?: entity.contentOriginal)
                 if (announcedArticleId != entity.id) {
                     screenBus.send("Detail loaded for article ${entity.id}: ${entity.title}")
                     announcedArticleId = entity.id
@@ -138,11 +146,15 @@ class DetailViewModel @AssistedInject constructor(
         highlightState.value = Highlight(word, translation)
     }
 
-    private fun cacheTranslation(word: String, translation: String) {
-        val normalizedWord = normalizeWord(word)
-        val normalizedTranslation = normalizeTranslation(translation)
+    private fun cacheTranslation(word: String?, translation: String?) {
+        val normalizedWord = normalizeWord(word.orEmpty())
+        val normalizedTranslation = normalizeTranslation(translation.orEmpty())
         if (normalizedWord.isEmpty() || normalizedTranslation.isEmpty()) return
-        translationCache[cacheKey(normalizedWord)] = normalizedTranslation
+        val key = cacheKey(normalizedWord)
+        val previous = translationCache.put(key, normalizedTranslation)
+        if (previous != normalizedTranslation) {
+            wordTranslations.value = translationCache.toMap()
+        }
     }
 
     private fun normalizeWord(word: String): String = word.trim()
@@ -151,10 +163,42 @@ class DetailViewModel @AssistedInject constructor(
 
     private fun cacheKey(word: String): String = word.lowercase(Locale.ROOT)
 
+    private fun prefetchContentTranslations(content: String) {
+        if (content.isBlank()) return
+        prefetchJob?.cancel()
+        prefetchJob = viewModelScope.launch {
+            val words = extractWords(content)
+            for ((key, candidate) in words) {
+                if (translationCache.containsKey(key)) continue
+                val translation = repo.translate(candidate)?.let(::normalizeTranslation)
+                if (!translation.isNullOrEmpty()) {
+                    cacheTranslation(candidate, translation)
+                }
+            }
+        }
+    }
+
+    private fun extractWords(content: String): LinkedHashMap<String, String> {
+        val map = LinkedHashMap<String, String>()
+        WORD_REGEX.findAll(content).forEach { match ->
+            val rawWord = normalizeWord(match.value)
+            if (rawWord.length <= 1) return@forEach
+            val key = cacheKey(rawWord)
+            if (key !in map) {
+                map[key] = rawWord
+            }
+        }
+        return map
+    }
+
     private data class Highlight(
         val word: String? = null,
         val translation: String? = null,
     )
+
+    companion object {
+        private val WORD_REGEX = Regex("[\\p{L}\\p{Nd}']+")
+    }
 
     @AssistedFactory
     interface Factory : AssistedVmFactory<DetailViewModel>

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
+import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,18 +28,20 @@ class DetailViewModelTest {
 
     vm.initOnce(article.id)
     advanceUntilIdle()
+    val baselineCalls = repo.translateCalls
 
     vm.translate("Hover")
     advanceUntilIdle()
 
-    assertEquals("Hover-1", vm.state.value.highlightedTranslation)
-    assertEquals(1, repo.translateCalls)
+    val first = requireNotNull(vm.state.value.highlightedTranslation)
+    assertEquals(baselineCalls + 1, repo.translateCalls)
+    assertEquals(first, vm.state.value.highlightedTranslation)
 
     vm.translate("Hover")
     advanceUntilIdle()
 
-    assertEquals("Hover-1", vm.state.value.highlightedTranslation)
-    assertEquals(1, repo.translateCalls)
+    assertEquals(first, vm.state.value.highlightedTranslation)
+    assertEquals(baselineCalls + 1, repo.translateCalls)
   }
 
   @Test
@@ -49,11 +52,12 @@ class DetailViewModelTest {
 
     vm.initOnce(article.id)
     advanceUntilIdle()
+    val baselineCalls = repo.translateCalls
 
     vm.translate("Original")
     advanceUntilIdle()
 
-    assertEquals(0, repo.translateCalls)
+    assertEquals(baselineCalls, repo.translateCalls)
     assertEquals("Original", vm.state.value.highlightedWord)
     assertEquals("Translated", vm.state.value.highlightedTranslation)
   }
@@ -66,18 +70,35 @@ class DetailViewModelTest {
 
     vm.initOnce(article.id)
     advanceUntilIdle()
+    val baselineCalls = repo.translateCalls
 
     vm.translate("Word")
     advanceUntilIdle()
 
-    assertEquals(1, repo.translateCalls)
-    assertEquals("Word-1", vm.state.value.highlightedTranslation)
+    val first = requireNotNull(vm.state.value.highlightedTranslation)
+    assertEquals(baselineCalls + 1, repo.translateCalls)
+    assertEquals(first, vm.state.value.highlightedTranslation)
 
     vm.translate("word")
     advanceUntilIdle()
 
-    assertEquals(1, repo.translateCalls)
-    assertEquals("Word-1", vm.state.value.highlightedTranslation)
+    assertEquals(baselineCalls + 1, repo.translateCalls)
+    assertEquals(first, vm.state.value.highlightedTranslation)
+  }
+
+  @Test
+  fun prefetchPopulatesWordTranslations() = runTest {
+    val article = sampleArticle(content = "Alpha beta alpha", original = "seed", translated = "sprout")
+    val repo = FakeArticleRepo(article) { word, _ -> "${word.lowercase(Locale.ROOT)}-t" }
+    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+
+    vm.initOnce(article.id)
+    advanceUntilIdle()
+
+    val translations = vm.state.value.wordTranslations
+    assertEquals("sprout", translations["seed"])
+    assertEquals("alpha-t", translations["alpha"])
+    assertEquals("beta-t", translations["beta"])
   }
 
   @Test

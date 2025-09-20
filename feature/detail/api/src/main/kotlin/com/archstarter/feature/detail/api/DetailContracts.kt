@@ -16,6 +16,7 @@ data class DetailState(
   val ipa: String? = null,
   val highlightedWord: String? = null,
   val highlightedTranslation: String? = null,
+  val wordTranslations: Map<String, String> = emptyMap(),
 )
 
 interface DetailPresenter : ParamInit<Int> {
