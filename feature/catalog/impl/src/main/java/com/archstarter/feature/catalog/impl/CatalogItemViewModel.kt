@@ -26,6 +26,7 @@ import dagger.multibindings.IntoMap
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class CatalogItemViewModel @AssistedInject constructor(
@@ -37,6 +38,7 @@ class CatalogItemViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(CatalogItem(0, "", ""))
     override val state: StateFlow<CatalogItem> = _state
     private var translationJob: Job? = null
+    private var observeJob: Job? = null
 
     init {
         println("CatalogItemViewModel created vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
@@ -47,16 +49,17 @@ class CatalogItemViewModel @AssistedInject constructor(
     }
 
     override fun initOnce(params: Int) {
-        viewModelScope.launch {
-            val entity = repo.article(params) ?: return@launch
-            val summary = entity.summaryTranslated ?: entity.summaryOriginal
-            _state.value = CatalogItem(entity.id, entity.title, summary)
-            if (entity.summaryTranslated == null) {
-                translationJob?.cancel()
-                translationJob = launch {
-                    val translated = repo.translateArticle(entity.id)?.summaryTranslated
-                    if (!translated.isNullOrBlank()) {
-                        _state.value = CatalogItem(entity.id, entity.title, translated)
+        if (observeJob != null) return
+        observeJob = viewModelScope.launch {
+            repo.article(params).collect { entity ->
+                if (entity == null) return@collect
+                val summary = entity.summaryTranslated ?: entity.summaryOriginal
+                _state.value = CatalogItem(entity.id, entity.title, summary)
+                if (entity.summaryTranslated == null && translationJob?.isActive != true) {
+                    translationJob = launch {
+                        repo.translateArticle(entity.id)
+                    }.also { job ->
+                        job.invokeOnCompletion { if (translationJob === job) translationJob = null }
                     }
                 }
             }

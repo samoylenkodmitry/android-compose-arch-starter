@@ -23,8 +23,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -46,25 +48,34 @@ class DetailViewModel @AssistedInject constructor(
     override val state: StateFlow<DetailState> = _state
     private var initialized = false
     private val translationCache = mutableMapOf<String, String>()
+    private var translationJob: Job? = null
+    private var loadEventSent = false
 
     override fun initOnce(params: Int) {
         if (initialized) return
         initialized = true
         viewModelScope.launch {
-            repo.article(params)?.let {
-                val content = it.contentTranslated ?: it.contentOriginal
-                val originalWord = it.originalWord.orEmpty()
-                val translatedWord = it.translatedWord.orEmpty()
-                _state.value = DetailState(
-                    title = it.title,
+            repo.article(params).collect { entity ->
+                if (entity == null) return@collect
+                val content = entity.contentTranslated ?: entity.contentOriginal
+                val originalWord = entity.originalWord.orEmpty()
+                val translatedWord = entity.translatedWord.orEmpty()
+                _state.value = _state.value.copy(
+                    title = entity.title,
                     content = content,
-                    sourceUrl = it.sourceUrl,
+                    sourceUrl = entity.sourceUrl,
                     originalWord = originalWord,
                     translatedWord = translatedWord,
-                    ipa = it.ipa
+                    ipa = entity.ipa
                 )
                 cacheTranslation(originalWord, translatedWord)
-                screenBus.send("Detail loaded for article $params: ${it.title}")
+                if (!loadEventSent) {
+                    screenBus.send("Detail loaded for article $params: ${entity.title}")
+                    loadEventSent = true
+                }
+                if (entity.summaryTranslated == null || entity.contentTranslated == null) {
+                    requestArticleTranslation(entity.id)
+                }
             }
         }
     }
@@ -99,6 +110,15 @@ class DetailViewModel @AssistedInject constructor(
         val normalizedTranslation = normalizeTranslation(translation)
         if (normalizedWord.isEmpty() || normalizedTranslation.isEmpty()) return
         translationCache[cacheKey(normalizedWord)] = normalizedTranslation
+    }
+
+    private fun requestArticleTranslation(id: Int) {
+        if (translationJob?.isActive == true) return
+        translationJob = viewModelScope.launch {
+            repo.translateArticle(id)
+        }.also { job ->
+            job.invokeOnCompletion { if (translationJob === job) translationJob = null }
+        }
     }
 
     private fun normalizeWord(word: String): String = word.trim()

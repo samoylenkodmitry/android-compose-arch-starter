@@ -37,8 +37,8 @@ private val fallbackJson = Json { ignoreUnknownKeys = true }
 
 interface ArticleRepo {
   val articles: Flow<List<ArticleEntity>>
+  fun article(id: Int): Flow<ArticleEntity?>
   suspend fun refresh()
-  suspend fun article(id: Int): ArticleEntity?
   suspend fun translateArticle(id: Int): ArticleEntity?
   suspend fun translate(word: String): String?
 }
@@ -53,6 +53,8 @@ class ArticleRepository @Inject constructor(
   private val dao: ArticleDao
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
+
+  override fun article(id: Int): Flow<ArticleEntity?> = dao.observeArticle(id)
 
   override suspend fun refresh() {
     val summary = runCatching { wiki.randomSummary() }.getOrElse { return }
@@ -77,8 +79,6 @@ class ArticleRepository @Inject constructor(
     )
     dao.insert(entity)
   }
-
-  override suspend fun article(id: Int): ArticleEntity? = dao.getArticle(id)
 
   override suspend fun translateArticle(id: Int): ArticleEntity? {
     val current = dao.getArticle(id) ?: return null
@@ -302,6 +302,7 @@ object ArticleDataModule {
   @Singleton
   fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
     Room.databaseBuilder(context, AppDatabase::class.java, "articles.db")
+      .addMigrations(AppDatabase.MIGRATION_2_3)
       .fallbackToDestructiveMigration(dropAllTables = true)
       .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
       .build()

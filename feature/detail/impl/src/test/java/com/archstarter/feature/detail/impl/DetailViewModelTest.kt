@@ -5,6 +5,7 @@ import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -79,6 +80,40 @@ class DetailViewModelTest {
     assertEquals("Word-1", vm.state.value.highlightedTranslation)
   }
 
+  @Test
+  fun initRequestsTranslationAndUpdatesWhenAvailable() = runTest {
+    val untranslated = sampleArticle(summary = "Summary", content = "Content")
+      .copy(
+        summaryTranslated = null,
+        contentTranslated = null,
+        originalWord = null,
+        translatedWord = null
+      )
+    val translated = untranslated.copy(
+      summaryTranslated = "Translated summary",
+      contentTranslated = "Translated content",
+      originalWord = "Word",
+      translatedWord = "Palabra"
+    )
+    val repo = FakeArticleRepo(untranslated) { _, _ -> null }
+    repo.publishOnTranslate = false
+    repo.translateArticleResult = translated
+    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+
+    vm.initOnce(untranslated.id)
+    advanceUntilIdle()
+
+    assertEquals("Content", vm.state.value.content)
+    assertEquals(1, repo.translateArticleCalls)
+
+    repo.publishTranslation()
+    advanceUntilIdle()
+
+    assertEquals("Translated content", vm.state.value.content)
+    assertEquals("Word", vm.state.value.originalWord)
+    assertEquals("Palabra", vm.state.value.translatedWord)
+  }
+
   private fun sampleArticle(
     id: Int = 1,
     title: String = "Title",
@@ -104,21 +139,35 @@ class DetailViewModelTest {
   )
 
   private class FakeArticleRepo(
-    private val article: ArticleEntity?,
+    initialArticle: ArticleEntity?,
     private val translationProvider: (String, Int) -> String?,
   ) : ArticleRepo {
     override val articles: StateFlow<List<ArticleEntity>> = MutableStateFlow(emptyList())
+    private val articleState = MutableStateFlow(initialArticle)
     var translateCalls: Int = 0
+    var translateArticleCalls: Int = 0
+    var translateArticleResult: ArticleEntity? = initialArticle
+    var publishOnTranslate: Boolean = true
 
     override suspend fun refresh() {}
 
-    override suspend fun article(id: Int): ArticleEntity? = article
+    override fun article(id: Int): Flow<ArticleEntity?> = articleState
 
-    override suspend fun translateArticle(id: Int): ArticleEntity? = article
+    override suspend fun translateArticle(id: Int): ArticleEntity? {
+      translateArticleCalls += 1
+      if (publishOnTranslate) {
+        translateArticleResult?.let { articleState.value = it }
+      }
+      return translateArticleResult
+    }
 
     override suspend fun translate(word: String): String? {
       translateCalls += 1
       return translationProvider(word, translateCalls)
+    }
+
+    fun publishTranslation() {
+      translateArticleResult?.let { articleState.value = it }
     }
   }
 }

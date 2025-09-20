@@ -17,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,6 +44,8 @@ class ArticleRepositoryTest {
     private val data = MutableStateFlow<List<ArticleEntity>>(emptyList())
     override fun getArticles(): Flow<List<ArticleEntity>> = data
     override suspend fun getArticle(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+    override fun observeArticle(id: Int): Flow<ArticleEntity?> =
+      data.map { articles -> articles.firstOrNull { it.id == id } }
     override suspend fun insert(article: ArticleEntity) {
       data.value = data.value.filterNot { it.id == article.id } + article
     }
