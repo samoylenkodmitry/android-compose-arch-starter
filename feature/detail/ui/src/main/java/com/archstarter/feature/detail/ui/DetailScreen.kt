@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
@@ -177,13 +180,43 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
             highlightPaddingYPx
           ) {
             awaitPointerEventScope {
+              var activePointerId: PointerId? = null
               while (true) {
                 val event = awaitPointerEvent()
                 if (event.type == PointerEventType.Scroll) continue
                 val layoutResult = layout ?: continue
                 val currentDisplay = displayContent
                 if (currentDisplay.isEmpty()) continue
-                val change = event.changes.firstOrNull() ?: continue
+
+                if (activePointerId == null) {
+                  val downChange = event.changes.firstOrNull {
+                    it.changedToDownIgnoreConsumed() && layoutResult.isPositionInsideText(it.position)
+                  }
+                  if (downChange == null) {
+                    if (event.changes.any { it.changedToDownIgnoreConsumed() }) {
+                      activePointerId = null
+                    }
+                    continue
+                  }
+                  activePointerId = downChange.id
+                }
+
+                val pointerId = activePointerId
+                val change = event.changes.firstOrNull { it.id == pointerId }
+                if (change == null) {
+                  if (event.changes.none { it.pressed }) {
+                    activePointerId = null
+                  }
+                  continue
+                }
+                if (change.changedToUpIgnoreConsumed() || !change.pressed) {
+                  activePointerId = null
+                  continue
+                }
+                if (!layoutResult.isPositionInsideText(change.position)) {
+                  continue
+                }
+
                 val textLength = currentDisplay.length
                 val rawOffset = layoutResult
                   .getOffsetForPosition(change.position)
@@ -375,6 +408,21 @@ internal fun buildDisplayContent(
 }
 
 private enum class VariantKind { BASE, CACHED, HIGHLIGHT }
+
+private fun TextLayoutResult.isPositionInsideText(position: Offset): Boolean {
+  if (lineCount == 0) return false
+  if (position.x < 0f || position.y < 0f) return false
+  val width = size.width.toFloat()
+  val height = size.height.toFloat()
+  if (position.x > width || position.y > height) return false
+  val line = getLineForVerticalPosition(position.y)
+  if (line < 0 || line >= lineCount) return false
+  val lineLeft = getLineLeft(line)
+  val lineRight = getLineRight(line)
+  if (lineLeft.isNaN() || lineRight.isNaN()) return false
+  if (lineRight <= lineLeft) return false
+  return position.x in lineLeft..lineRight
+}
 
 private data class VariantCandidate(
   val kind: VariantKind,
