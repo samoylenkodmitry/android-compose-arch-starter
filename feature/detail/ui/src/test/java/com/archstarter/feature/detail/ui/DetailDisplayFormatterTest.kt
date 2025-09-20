@@ -1,5 +1,6 @@
 package com.archstarter.feature.detail.ui
 
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,6 +19,7 @@ class DetailDisplayFormatterTest {
       highlightIndex = null,
       translation = null,
       translations = translations,
+      measureWidth = ::charCountMeasure,
     )
 
     val wordBounds = display.bounds[1]
@@ -41,6 +43,7 @@ class DetailDisplayFormatterTest {
       highlightIndex = null,
       translation = null,
       translations = translations,
+      measureWidth = ::charCountMeasure,
     )
     val highlighted = buildDisplayContent(
       content = content,
@@ -48,6 +51,7 @@ class DetailDisplayFormatterTest {
       highlightIndex = 0,
       translation = "go",
       translations = translations,
+      measureWidth = ::charCountMeasure,
     )
 
     assertEquals(base.text.length, highlighted.text.length)
@@ -60,4 +64,60 @@ class DetailDisplayFormatterTest {
     assertEquals("Gamma".length, highlightSegment.length)
     assertTrue(highlightSegment.takeLast(expectedPad).all { it == DETAIL_DISPLAY_PAD_CHAR })
   }
+
+  @Test
+  fun measuredWidthsAlignForVariableCharacters() {
+    val content = "ill wig"
+    val words = content.toWordEntries()
+    val translations = mapOf("ill" to "WWW")
+
+    val base = buildDisplayContent(
+      content = content,
+      words = words,
+      highlightIndex = null,
+      translation = null,
+      translations = translations,
+      measureWidth = ::variableWidthMeasure,
+    )
+    val highlighted = buildDisplayContent(
+      content = content,
+      words = words,
+      highlightIndex = 0,
+      translation = "WWW",
+      translations = translations,
+      measureWidth = ::variableWidthMeasure,
+    )
+
+    val baseBounds = base.bounds[0]
+    val baseSegment = base.text.substring(baseBounds.start, baseBounds.end)
+    val highlightBounds = highlighted.bounds[0]
+    val highlightSegment = highlighted.text.substring(highlightBounds.start, highlightBounds.end)
+
+    val baseWidth = variableWidthMeasure(baseSegment)
+    val highlightWidth = variableWidthMeasure(highlightSegment)
+
+    assertTrue(
+      "Measured widths differ: base=$baseWidth highlight=$highlightWidth",
+      abs(baseWidth - highlightWidth) < 0.01f
+    )
+    assertTrue(highlightSegment.startsWith("WWW"))
+    assertTrue(baseSegment.contains(DETAIL_DISPLAY_PAD_CHAR))
+  }
+}
+
+private fun charCountMeasure(text: String): Float = text.length.toFloat()
+
+private fun variableWidthMeasure(text: String): Float {
+  var width = 0f
+  for (ch in text) {
+    val normalized = ch.lowercaseChar()
+    width += when (normalized) {
+      'i', 'l' -> 1f
+      'w', 'm' -> 3f
+      DETAIL_DISPLAY_PAD_CHAR -> 1f
+      ' ' -> 1f
+      else -> 2f
+    }
+  }
+  return width
 }
