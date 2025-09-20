@@ -19,17 +19,21 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.ProvidePresenter
+import androidx.compose.ui.tooling.preview.Preview
+import com.archstarter.core.common.presenter.ProvidePresenterMocks
 import com.archstarter.core.common.presenter.rememberPresenter
+import com.archstarter.core.common.presenter.presenterMock
+import com.archstarter.core.common.presenter.presenterMocksOf
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
+import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
+import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -252,8 +256,22 @@ private class FakeCatalogPresenter : CatalogPresenter {
 @Composable
 private fun PreviewCatalog() {
   AppTheme {
-    ProvidePresenter<CatalogPresenter>(FakeCatalogPresenter()) {
+    val catalogPresenter = remember { FakeCatalogPresenter() }
+    val mocks = remember(catalogPresenter) {
+      presenterMocksOf(
+        presenterMock<CatalogPresenter> { catalogPresenter },
+        presenterMock<CatalogItemPresenter> { PreviewCatalogItemPresenter() },
+      )
+    }
+    ProvidePresenterMocks(mocks) {
       CatalogScreen()
     }
   }
+}
+
+private class PreviewCatalogItemPresenter : CatalogItemPresenter {
+  private val _s = MutableStateFlow(CatalogItem(1, "Alpha", "Summary"))
+  override val state: StateFlow<CatalogItem> = _s
+  override fun onClick() {}
+  override fun initOnce(params: Int?) {}
 }

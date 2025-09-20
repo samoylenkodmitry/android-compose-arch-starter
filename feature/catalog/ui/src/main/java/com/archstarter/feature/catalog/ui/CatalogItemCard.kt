@@ -8,12 +8,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.ProvidePresenter
+import com.archstarter.core.common.presenter.ProvidePresenterMocks
 import com.archstarter.core.common.presenter.rememberPresenter
+import com.archstarter.core.common.presenter.presenterMock
+import com.archstarter.core.common.presenter.presenterMocksOf
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
@@ -71,7 +74,13 @@ private class FakeCatalogItemPresenter : CatalogItemPresenter {
 @Composable
 private fun PreviewCatalogItemCard() {
   AppTheme {
-    ProvidePresenter<CatalogItemPresenter>(FakeCatalogItemPresenter(), key = "item1") {
+    val presenter = remember { FakeCatalogItemPresenter() }
+    val mocks = remember(presenter) {
+      presenterMocksOf(
+        presenterMock<CatalogItemPresenter>(key = "item1") { presenter },
+      )
+    }
+    ProvidePresenterMocks(mocks) {
       CatalogItemCard(id = 1)
     }
   }

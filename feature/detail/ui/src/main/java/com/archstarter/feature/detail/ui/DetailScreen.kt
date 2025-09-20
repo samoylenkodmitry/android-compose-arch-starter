@@ -14,15 +14,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.ProvidePresenter
+import com.archstarter.core.common.presenter.ProvidePresenterMocks
 import com.archstarter.core.common.presenter.rememberPresenter
+import com.archstarter.core.common.presenter.presenterMock
+import com.archstarter.core.common.presenter.presenterMocksOf
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
@@ -486,7 +488,13 @@ private fun TextLayoutResult.toLiquidRect(
 @Composable
 private fun PreviewDetail() {
   AppTheme {
-    ProvidePresenter<DetailPresenter>(FakeDetailPresenter()) {
+    val presenter = remember { FakeDetailPresenter() }
+    val mocks = remember(presenter) {
+      presenterMocksOf(
+        presenterMock<DetailPresenter> { presenter },
+      )
+    }
+    ProvidePresenterMocks(mocks) {
       DetailScreen(id = 1)
     }
   }

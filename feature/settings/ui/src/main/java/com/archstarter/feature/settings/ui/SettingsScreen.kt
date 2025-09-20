@@ -41,8 +41,10 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.ProvidePresenter
+import com.archstarter.core.common.presenter.ProvidePresenterMocks
 import com.archstarter.core.common.presenter.rememberPresenter
+import com.archstarter.core.common.presenter.presenterMock
+import com.archstarter.core.common.presenter.presenterMocksOf
 import com.archstarter.core.common.scope.ScreenScope
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.settings.api.LanguageChooserParams
@@ -361,20 +363,22 @@ private class FakeLanguageChooserPresenter(
 @Composable
 private fun PreviewSettings() {
     AppTheme {
+        val settings = remember { FakeSettingsPresenter() }
         val native = remember { FakeLanguageChooserPresenter("English") }
         val learning = remember { FakeLanguageChooserPresenter("Spanish") }
-        ProvidePresenter<SettingsPresenter>(FakeSettingsPresenter()) {
-            ProvidePresenter<LanguageChooserPresenter>(
-                presenter = native,
-                key = languagePresenterKey(LanguageChooserRole.Native),
-            ) {
-                ProvidePresenter<LanguageChooserPresenter>(
-                    presenter = learning,
+        val mocks = remember(settings, native, learning) {
+            presenterMocksOf(
+                presenterMock<SettingsPresenter> { settings },
+                presenterMock<LanguageChooserPresenter>(
+                    key = languagePresenterKey(LanguageChooserRole.Native),
+                ) { native },
+                presenterMock<LanguageChooserPresenter>(
                     key = languagePresenterKey(LanguageChooserRole.Learning),
-                ) {
-                    SettingsScreen()
-                }
-            }
+                ) { learning },
+            )
+        }
+        ProvidePresenterMocks(mocks) {
+            SettingsScreen()
         }
     }
 }
