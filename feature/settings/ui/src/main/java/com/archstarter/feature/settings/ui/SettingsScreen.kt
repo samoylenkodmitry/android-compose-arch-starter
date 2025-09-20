@@ -1,11 +1,19 @@
 package com.archstarter.feature.settings.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -81,21 +89,37 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                     .fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
-            filteredLanguages.forEach { lang ->
-                DropdownMenuItem(
-                    text = { Text(lang) },
-                    onClick = {
-                        expanded = false
-                        onSelect(lang)
-                        searchQuery = ""
+            AnimatedVisibility(
+                visible = filteredLanguages.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                ) {
+                    items(filteredLanguages, key = { it }) { lang ->
+                        DropdownMenuItem(
+                            text = { Text(lang) },
+                            onClick = {
+                                expanded = false
+                                onSelect(lang)
+                                searchQuery = ""
+                            }
+                        )
                     }
-                )
+                }
             }
-            if (filteredLanguages.isEmpty()) {
+            AnimatedVisibility(
+                visible = filteredLanguages.isEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
                 DropdownMenuItem(
                     text = { Text("No languages found") },
                     enabled = false,
-                    onClick = {}
+                    onClick = {},
                 )
             }
         }
