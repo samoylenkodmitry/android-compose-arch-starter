@@ -34,6 +34,7 @@ private const val MAX_GLASSES = 6
 
 private const val LIQUID_GLASS_AGSL = """
 uniform shader background;
+uniform shader blurred;
 
 uniform float2 u_size;
 uniform float2 u_center;
@@ -89,37 +90,53 @@ half4 main(float2 coord) {
     float rim = pow(1.0 - x, 3.0);
     half specA = half(clamp(u_highlight * rim, 0.0, 1.0));
     half4 spec = half4(1.0, 1.0, 1.0, specA);
-    float blurPx = clamp(u_blurRadius, 0.0, 80.0);
-    float2 clampMin = float2(0.5);
-    float2 clampMax = u_size - float2(0.5);
     half4 base = refr;
+    float blurPx = clamp(u_blurRadius, 0.0, 80.0);
     if (blurPx > 0.001) {
-        float2 baseCoord = clamp(sampleCoord, clampMin, clampMax);
-        float sampleStep = max(0.5, blurPx * 0.4);
-        float diagStep = sampleStep * 0.70710678;
-        half4 center = background.eval(baseCoord);
-        half4 axisSum = half4(0.0);
-        axisSum += background.eval(clamp(baseCoord + float2( sampleStep, 0.0), clampMin, clampMax));
-        axisSum += background.eval(clamp(baseCoord + float2(-sampleStep, 0.0), clampMin, clampMax));
-        axisSum += background.eval(clamp(baseCoord + float2(0.0,  sampleStep), clampMin, clampMax));
-        axisSum += background.eval(clamp(baseCoord + float2(0.0, -sampleStep), clampMin, clampMax));
-        half4 diagSum = half4(0.0);
-        diagSum += background.eval(clamp(baseCoord + float2( diagStep,  diagStep), clampMin, clampMax));
-        diagSum += background.eval(clamp(baseCoord + float2(-diagStep,  diagStep), clampMin, clampMax));
-        diagSum += background.eval(clamp(baseCoord + float2( diagStep, -diagStep), clampMin, clampMax));
-        diagSum += background.eval(clamp(baseCoord + float2(-diagStep, -diagStep), clampMin, clampMax));
-        half4 blur = center * 4.0;
-        blur += axisSum * 2.0;
-        blur += diagSum;
-        blur *= half(1.0 / 16.0);
+        half4 blurSample = blurred.eval(sampleCoord);
         float blurStrength = clamp(blurPx / (blurPx + 8.0), 0.0, 0.85);
-        base = mix(base, blur, blurStrength);
+        base = mix(base, blurSample, blurStrength);
     }
     half4 outc = base + spec * spec.a * 0.85;
     half tintA = half(clamp(u_tintColor.w, 0.0, 1.0));
     half3 tintRgb = half3(u_tintColor.rgb);
     outc.rgb = mix(outc.rgb, tintRgb, tintA);
     return outc;
+}
+"""
+
+private const val LIQUID_GLASS_BLUR_AGSL = """
+uniform shader background;
+
+uniform float2 u_size;
+uniform float  u_blurRadius;
+
+half4 main(float2 coord) {
+    float blurPx = clamp(u_blurRadius, 0.0, 80.0);
+    if (blurPx <= 0.001) {
+        return background.eval(coord);
+    }
+    float2 clampMin = float2(0.5);
+    float2 clampMax = u_size - float2(0.5);
+    float2 baseCoord = clamp(coord, clampMin, clampMax);
+    float sampleStep = max(0.5, blurPx * 0.4);
+    float diagStep = sampleStep * 0.70710678;
+    half4 center = background.eval(baseCoord);
+    half4 axisSum = half4(0.0);
+    axisSum += background.eval(clamp(baseCoord + float2( sampleStep, 0.0), clampMin, clampMax));
+    axisSum += background.eval(clamp(baseCoord + float2(-sampleStep, 0.0), clampMin, clampMax));
+    axisSum += background.eval(clamp(baseCoord + float2(0.0,  sampleStep), clampMin, clampMax));
+    axisSum += background.eval(clamp(baseCoord + float2(0.0, -sampleStep), clampMin, clampMax));
+    half4 diagSum = half4(0.0);
+    diagSum += background.eval(clamp(baseCoord + float2( diagStep,  diagStep), clampMin, clampMax));
+    diagSum += background.eval(clamp(baseCoord + float2(-diagStep,  diagStep), clampMin, clampMax));
+    diagSum += background.eval(clamp(baseCoord + float2( diagStep, -diagStep), clampMin, clampMax));
+    diagSum += background.eval(clamp(baseCoord + float2(-diagStep, -diagStep), clampMin, clampMax));
+    half4 blur = center * 4.0;
+    blur += axisSum * 2.0;
+    blur += diagSum;
+    blur *= half(1.0 / 16.0);
+    return blur;
 }
 """
 
@@ -295,6 +312,11 @@ private fun createRuntimeEffect(
             runtimeRect.tintColor.alpha,
         )
         shader.setFloatUniform("u_blurRadius", runtimeRect.blurRadiusPx)
+
+        val blurShader = RuntimeShader(LIQUID_GLASS_BLUR_AGSL)
+        blurShader.setFloatUniform("u_size", containerSize.width, containerSize.height)
+        blurShader.setFloatUniform("u_blurRadius", runtimeRect.blurRadiusPx)
+        shader.setInputShader("blurred", blurShader)
 
         val effect = RenderEffect.createRuntimeShaderEffect(shader, "background")
         chainedEffect = if (chainedEffect == null) {
