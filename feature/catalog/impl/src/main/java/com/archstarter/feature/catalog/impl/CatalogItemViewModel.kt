@@ -44,9 +44,10 @@ class CatalogItemViewModel @AssistedInject constructor(
         println("CatalogItemViewModel clear vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
     }
 
-    override fun initOnce(params: Int) {
+    override fun initOnce(params: Int?) {
+        val itemId = params ?: return
         viewModelScope.launch {
-            repo.article(params)?.let {
+            repo.article(itemId)?.let {
                 _state.value = CatalogItem(it.id, it.title, it.summary)
             }
         }

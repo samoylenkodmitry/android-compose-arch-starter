@@ -79,7 +79,7 @@ class CatalogViewModel @AssistedInject constructor(
         app.navigation.openDetail(id)
     }
 
-    override fun initOnce(params: Unit) {
+    override fun initOnce(params: Unit?) {
     }
 
     @AssistedFactory

@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.ProvidePresenter
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
@@ -34,10 +35,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 @Composable
-fun CatalogScreen(
-  presenter: CatalogPresenter? = null,
-) {
-  val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
+fun CatalogScreen() {
+  CatalogScreenContent()
+}
+
+@Composable
+private fun CatalogScreenContent() {
+  val p = rememberPresenter<CatalogPresenter, Unit>()
   val state by p.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
   val density = LocalDensity.current
@@ -241,11 +245,15 @@ private class FakeCatalogPresenter : CatalogPresenter {
   override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + (_s.value.items.size+1)) }
   override fun onItemClick(id: Int) {}
   override fun onSettingsClick() {}
-  override fun initOnce(params: Unit) {}
+  override fun initOnce(params: Unit?) {}
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun PreviewCatalog() {
-  AppTheme { CatalogScreen(presenter = FakeCatalogPresenter()) }
+  AppTheme {
+    ProvidePresenter<CatalogPresenter>(FakeCatalogPresenter()) {
+      CatalogScreen()
+    }
+  }
 }

@@ -6,7 +6,7 @@ import org.junit.Test
 class ParamInitTest {
     private class TestInit : ParamInit<String> {
         var value: String? = null
-        override fun initOnce(params: String) {
+        override fun initOnce(params: String?) {
             if (value == null) {
                 value = params
             }

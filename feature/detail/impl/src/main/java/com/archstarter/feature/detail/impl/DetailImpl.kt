@@ -51,8 +51,8 @@ class DetailViewModel @AssistedInject constructor(
     private val translationCache = mutableMapOf<String, String>()
     private var prefetchJob: Job? = null
 
-    override fun initOnce(params: Int) {
-        if (initialized) return
+    override fun initOnce(params: Int?) {
+        if (initialized || params == null) return
         initialized = true
         viewModelScope.launch {
             repo.article(params)?.let {
