@@ -6,8 +6,10 @@ import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -104,6 +106,7 @@ class DetailViewModelTest {
     id: Int = 1,
     title: String = "Title",
     summary: String = "Summary",
+    summaryLanguage: String? = null,
     content: String = "Content",
     sourceUrl: String = "https://example.com",
     original: String = "Original",
@@ -114,6 +117,7 @@ class DetailViewModelTest {
     id = id,
     title = title,
     summary = summary,
+    summaryLanguage = summaryLanguage,
     content = content,
     sourceUrl = sourceUrl,
     originalWord = original,
@@ -132,6 +136,10 @@ class DetailViewModelTest {
     override suspend fun refresh() {}
 
     override suspend fun article(id: Int): ArticleEntity? = article
+
+    override fun articleFlow(id: Int): Flow<ArticleEntity?> = flowOf(article)
+
+    override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
 
     override suspend fun translate(word: String): String? {
       translateCalls += 1
