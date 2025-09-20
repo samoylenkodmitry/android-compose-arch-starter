@@ -15,8 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
@@ -30,6 +33,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
+import java.util.LinkedHashMap
+import java.util.Locale
+
+internal const val DETAIL_DISPLAY_PAD_CHAR: Char = '\u00A0'
 
 @Composable
 fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
@@ -73,12 +80,20 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       animWidth.snapTo(0f)
       animHeight.snapTo(0f)
     }
+    val translations = state.wordTranslations
+    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge
+    val textMeasurer = rememberTextMeasurer()
+    val measureTextWidth = remember(textMeasurer, textStyle) {
+      { text: String ->
+        if (text.isEmpty()) 0f else textMeasurer.measure(AnnotatedString(text), style = textStyle).size.width.toFloat()
+      }
+    }
     val activeTranslation = state.highlightedTranslation?.takeIf {
       val normalized = currentNormalizedWord
       normalized != null && normalized == state.highlightedWord
     }
-    val display = remember(content, words, highlightWordIndex, activeTranslation) {
-      buildDisplayContent(content, words, highlightWordIndex, activeTranslation)
+    val display = remember(content, words, highlightWordIndex, activeTranslation, translations, measureTextWidth) {
+      buildDisplayContent(content, words, highlightWordIndex, activeTranslation, translations, measureTextWidth)
     }
     val displayContent = display.text
     val displayBounds = display.bounds
@@ -107,6 +122,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
     LiquidGlassRectOverlay(rect = highlightRect) {
       Text(
         text = displayContent,
+        style = textStyle,
         onTextLayout = { result ->
           layout = result
           val range = highlightBounds
@@ -185,11 +201,11 @@ private class FakeDetailPresenter : DetailPresenter {
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float)
 
-private data class TextBounds(val start: Int, val end: Int) {
+internal data class TextBounds(val start: Int, val end: Int) {
   val length: Int get() = end - start
 }
 
-private data class WordEntry(
+internal data class WordEntry(
   val index: Int,
   val start: Int,
   val end: Int,
@@ -199,17 +215,17 @@ private data class WordEntry(
   val suffix: String
 )
 
-private data class DisplayContent(
+internal data class DisplayContent(
   val text: String,
   val bounds: List<DisplayWordBounds>
 )
 
-private data class DisplayWordBounds(val index: Int, val start: Int, val end: Int) {
+internal data class DisplayWordBounds(val index: Int, val start: Int, val end: Int) {
   fun contains(offset: Int): Boolean = offset in start until end
   val textBounds: TextBounds get() = TextBounds(start, end)
 }
 
-private fun String.toWordEntries(): List<WordEntry> {
+internal fun String.toWordEntries(): List<WordEntry> {
   if (isEmpty()) return emptyList()
   val entries = mutableListOf<WordEntry>()
   var index = 0
@@ -255,11 +271,13 @@ private fun String.toWordEntries(): List<WordEntry> {
   return entries
 }
 
-private fun buildDisplayContent(
+internal fun buildDisplayContent(
   content: String,
   words: List<WordEntry>,
   highlightIndex: Int?,
-  translation: String?
+  translation: String?,
+  translations: Map<String, String>,
+  measureWidth: (String) -> Float = ::defaultMeasureWidth,
 ): DisplayContent {
   if (words.isEmpty()) return DisplayContent(content, emptyList())
   val builder = StringBuilder(content.length + (translation?.length ?: 0))
@@ -270,19 +288,52 @@ private fun buildDisplayContent(
       builder.append(content, cursor, entry.start)
     }
     val start = builder.length
-    val displayWord = if (
-      highlightIndex != null &&
-      translation != null &&
-      entry.index == highlightIndex &&
-      entry.normalized.isNotEmpty()
-    ) {
-      buildString {
-        append(entry.prefix)
-        append(translation)
-        append(entry.suffix)
-      }
-    } else {
+    val normalized = entry.normalized
+    val displayWord = if (normalized.isEmpty()) {
       entry.text
+    } else {
+      val key = normalized.lowercase(Locale.ROOT)
+      val cachedTranslation = translations[key]?.takeIf { it.isNotEmpty() }
+      val isHighlighted = highlightIndex != null && translation != null && entry.index == highlightIndex
+      val highlightedTranslation = translation?.takeIf { isHighlighted && it.isNotEmpty() }
+      val variantCandidates = buildList {
+        add(
+          VariantCandidate(
+            kind = VariantKind.BASE,
+            prefix = entry.prefix,
+            core = normalized,
+            suffix = entry.suffix,
+          )
+        )
+        cachedTranslation?.let { translation ->
+          add(
+            VariantCandidate(
+              kind = VariantKind.CACHED,
+              prefix = entry.prefix,
+              core = translation,
+              suffix = entry.suffix,
+            )
+          )
+        }
+        highlightedTranslation?.let { translation ->
+          add(
+            VariantCandidate(
+              kind = VariantKind.HIGHLIGHT,
+              prefix = entry.prefix,
+              core = translation,
+              suffix = entry.suffix,
+            )
+          )
+        }
+      }
+      val paddedVariants = padVariantsToWidth(variantCandidates, measureWidth)
+      when {
+        highlightedTranslation != null ->
+          paddedVariants[VariantKind.HIGHLIGHT]?.text
+            ?: paddedVariants[VariantKind.CACHED]?.text
+            ?: paddedVariants.getValue(VariantKind.BASE).text
+        else -> paddedVariants.getValue(VariantKind.BASE).text
+      }
     }
     builder.append(displayWord)
     val end = builder.length
@@ -294,6 +345,113 @@ private fun buildDisplayContent(
   }
   return DisplayContent(builder.toString(), bounds)
 }
+
+private enum class VariantKind { BASE, CACHED, HIGHLIGHT }
+
+private data class VariantCandidate(
+  val kind: VariantKind,
+  val prefix: String,
+  val core: String,
+  val suffix: String,
+) {
+  val text: String = prefix + core + suffix
+}
+
+private data class VariantResult(
+  val prefix: String,
+  val core: String,
+  val suffix: String,
+  val width: Float,
+) {
+  val text: String = prefix + core + suffix
+}
+
+private fun padVariantsToWidth(
+  variants: List<VariantCandidate>,
+  measureWidth: (String) -> Float,
+): Map<VariantKind, VariantResult> {
+  if (variants.isEmpty()) return emptyMap()
+  val results = LinkedHashMap<VariantKind, VariantResult>(variants.size)
+  var targetWidth = 0f
+  for (variant in variants) {
+    val text = variant.text
+    val width = measureWidth(text)
+    results[variant.kind] = VariantResult(
+      prefix = variant.prefix,
+      core = variant.core,
+      suffix = variant.suffix,
+      width = width,
+    )
+    if (width > targetWidth) {
+      targetWidth = width
+    }
+  }
+  var iterations = 0
+  var updated: Boolean
+  do {
+    updated = false
+    for ((kind, result) in results) {
+      if (result.width + PAD_WIDTH_EPSILON >= targetWidth) continue
+      val padded = padToWidth(result, targetWidth, measureWidth)
+      if (padded.width > result.width + PAD_WIDTH_EPSILON) {
+        results[kind] = padded
+        updated = true
+      }
+    }
+    val newTarget = results.values.maxOf { it.width }
+    if (newTarget > targetWidth + PAD_WIDTH_EPSILON) {
+      targetWidth = newTarget
+      updated = true
+    }
+    iterations++
+  } while (updated && iterations < MAX_VARIANT_ALIGNMENT_PASSES)
+  return results
+}
+
+private fun padToWidth(
+  variant: VariantResult,
+  targetWidth: Float,
+  measureWidth: (String) -> Float,
+): VariantResult {
+  if (variant.text.isEmpty()) return variant
+  var width = variant.width
+  if (width + PAD_WIDTH_EPSILON >= targetWidth) {
+    return variant
+  }
+  val builder = StringBuilder(variant.core.length + 8)
+  builder.append(variant.core)
+  var lastWidth = width
+  var padCount = 0
+  var leftPads = 0
+  var rightPads = 0
+  while (width + PAD_WIDTH_EPSILON < targetWidth && padCount < MAX_PADDING_PER_VARIANT) {
+    if (leftPads <= rightPads) {
+      builder.insert(0, DETAIL_DISPLAY_PAD_CHAR)
+      leftPads++
+    } else {
+      builder.append(DETAIL_DISPLAY_PAD_CHAR)
+      rightPads++
+    }
+    val paddedCore = builder.toString()
+    val paddedText = variant.prefix + paddedCore + variant.suffix
+    val newWidth = measureWidth(paddedText)
+    if (newWidth <= lastWidth + MIN_WIDTH_DELTA) {
+      return VariantResult(variant.prefix, paddedCore, variant.suffix, newWidth)
+    }
+    width = newWidth
+    lastWidth = newWidth
+    padCount++
+  }
+  val finalCore = builder.toString()
+  return VariantResult(variant.prefix, finalCore, variant.suffix, width)
+}
+
+private fun defaultMeasureWidth(text: String): Float = text.length.toFloat()
+
+private const val MAX_PADDING_PER_VARIANT = 128
+private const val MAX_VARIANT_ALIGNMENT_PASSES = 6
+private const val PAD_WIDTH_EPSILON = 0.5f
+private const val MIN_WIDTH_DELTA = 0.01f
 
 private fun TextLayoutResult.toLiquidRect(
   range: TextBounds?,
