@@ -1,6 +1,10 @@
 package com.archstarter.feature.settings.ui
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -8,8 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
@@ -62,6 +65,14 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
             }
         }
     }
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(expanded, searchQuery) {
+        if (expanded) {
+            scrollState.scrollTo(0)
+        }
+    }
+
     Box {
         OutlinedButton(onClick = {
             expanded = true
@@ -87,47 +98,18 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                     .fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
-            val showEmptyState = filteredLanguages.isEmpty()
-            val listAlpha by animateFloatAsState(
-                targetValue = if (showEmptyState) 0f else 1f,
-                label = "languageListAlpha"
-            )
-            val emptyAlpha by animateFloatAsState(
-                targetValue = if (showEmptyState) 1f else 0f,
-                label = "emptyStateAlpha"
-            )
-
-            var listVisible by remember { mutableStateOf(!showEmptyState) }
-            var emptyVisible by remember { mutableStateOf(showEmptyState) }
-
-            LaunchedEffect(showEmptyState) {
-                if (showEmptyState) {
-                    emptyVisible = true
-                } else {
-                    listVisible = true
-                }
-            }
-
-            LaunchedEffect(listAlpha, showEmptyState) {
-                if (showEmptyState && listAlpha <= 0.01f) {
-                    listVisible = false
-                }
-            }
-
-            LaunchedEffect(emptyAlpha, showEmptyState) {
-                if (!showEmptyState && emptyAlpha <= 0.01f) {
-                    emptyVisible = false
-                }
-            }
-
-            if (listVisible) {
-                LazyColumn(
+            AnimatedVisibility(
+                visible = filteredLanguages.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
-                        .alpha(listAlpha)
+                        .verticalScroll(scrollState)
                 ) {
-                    items(filteredLanguages, key = { it }) { lang ->
+                    filteredLanguages.forEach { lang ->
                         DropdownMenuItem(
                             text = { Text(lang) },
                             onClick = {
@@ -140,9 +122,12 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
                 }
             }
 
-            if (emptyVisible) {
+            AnimatedVisibility(
+                visible = filteredLanguages.isEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 DropdownMenuItem(
-                    modifier = Modifier.alpha(emptyAlpha),
                     text = { Text("No languages found") },
                     enabled = false,
                     onClick = {},
