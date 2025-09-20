@@ -10,6 +10,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -27,6 +28,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun CatalogScreen(
@@ -103,36 +105,54 @@ fun CatalogScreen(
 
   var skipSnap by remember { mutableStateOf(false) }
   var lastSnapRequest by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-  LaunchedEffect(listState.isScrollInProgress) {
-    if (listState.isScrollInProgress) {
-      skipSnap = false
-      lastSnapRequest = null
-    } else if (!skipSnap) {
+  LaunchedEffect(listState) {
+    snapshotFlow {
       val layoutInfo = listState.layoutInfo
-      val info = centeredItemInfo ?: return@LaunchedEffect
-      val viewportStart = layoutInfo.viewportStartOffset.toFloat()
-      val viewportEnd = layoutInfo.viewportEndOffset.toFloat()
-      if (viewportEnd <= viewportStart) return@LaunchedEffect
-      val viewportCenter = (viewportStart + viewportEnd) / 2f
-      val itemCenter = info.offset + info.size / 2f
-      val difference = itemCenter - viewportCenter
-      if (abs(difference) > 0.5f) {
-        val viewportSize = viewportEnd - viewportStart
-        val minTop = viewportStart
-        val maxTop = (viewportStart + viewportSize - info.size).coerceAtLeast(minTop)
-        val desiredTop = (viewportCenter - info.size / 2f).coerceIn(minTop, maxTop)
-        val scrollOffset = (desiredTop - viewportStart).roundToInt()
-        val request = info.index to scrollOffset
-        if (lastSnapRequest == request) {
-          skipSnap = true
-        } else {
-          lastSnapRequest = request
-          listState.animateScrollToItem(index = info.index, scrollOffset = scrollOffset)
+      SnapFrame(
+        isScrolling = listState.isScrollInProgress,
+        viewportStart = layoutInfo.viewportStartOffset,
+        viewportEnd = layoutInfo.viewportEndOffset,
+        centeredItem = centeredItemInfo?.let { info ->
+          SnapItem(index = info.index, offset = info.offset, size = info.size)
         }
-      } else {
-        lastSnapRequest = null
-      }
+      )
     }
+      .distinctUntilChanged()
+      .collect { frame ->
+        if (frame.isScrolling) {
+          skipSnap = false
+          lastSnapRequest = null
+          return@collect
+        }
+        if (skipSnap) return@collect
+        val info = frame.centeredItem ?: return@collect
+        val viewportStart = frame.viewportStart.toFloat()
+        val viewportEnd = frame.viewportEnd.toFloat()
+        if (viewportEnd <= viewportStart) return@collect
+        val viewportCenter = (viewportStart + viewportEnd) / 2f
+        val itemCenter = info.offset + info.size / 2f
+        val difference = itemCenter - viewportCenter
+        if (abs(difference) > 0.5f) {
+          val viewportSize = viewportEnd - viewportStart
+          val minTop = viewportStart
+          val maxTop = (viewportStart + viewportSize - info.size).coerceAtLeast(minTop)
+          val desiredTop = (viewportCenter - info.size / 2f).coerceIn(minTop, maxTop)
+          val scrollOffset = (desiredTop - viewportStart).roundToInt()
+          val request = info.index to scrollOffset
+          if (lastSnapRequest == request) {
+            skipSnap = true
+          } else {
+            lastSnapRequest = request
+            listState.animateScrollToItem(
+              index = info.index,
+              scrollOffset = scrollOffset,
+            )
+            lastSnapRequest = null
+          }
+        } else {
+          lastSnapRequest = null
+        }
+      }
   }
 
   Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -174,6 +194,19 @@ fun CatalogScreen(
 
 private const val TOP_SPACER_KEY = "top_spacer"
 private const val BOTTOM_SPACER_KEY = "bottom_spacer"
+
+private data class SnapFrame(
+  val isScrolling: Boolean,
+  val viewportStart: Int,
+  val viewportEnd: Int,
+  val centeredItem: SnapItem?,
+)
+
+private data class SnapItem(
+  val index: Int,
+  val offset: Int,
+  val size: Int,
+)
 
 // ---- Fake for preview (no Hilt in UI module) ----
 private class FakeCatalogPresenter : CatalogPresenter {
