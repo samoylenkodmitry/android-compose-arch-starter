@@ -107,7 +107,7 @@ fun CatalogScreen(
       rect.copy(left = rect.left + offsetX, top = rect.top + offsetY)
     }
   }
-  val buttonGlassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+  val buttonGlassTint = Color(0xFF98A9CF)
   val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density, buttonGlassTint) {
     val buttonOffset = settingsButtonOffset
     val buttonSize = settingsButtonSize
@@ -178,7 +178,7 @@ fun CatalogScreen(
       }
     }
 
-    val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+    val glassPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
     val transparentButtonColors = ButtonDefaults.buttonColors(
       containerColor = Color.Transparent,
       contentColor = MaterialTheme.colorScheme.onSurface,
@@ -213,7 +213,7 @@ fun CatalogScreen(
             onClick = p::onSettingsClick,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
-          ) { Text("Settings") }
+          ) { Text("Settings", color = MaterialTheme.colorScheme.inverseOnSurface) }
         }
       }
       Box(
@@ -227,7 +227,7 @@ fun CatalogScreen(
             onClick = p::onRefresh,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
-          ) { Text("Refresh (${state.items.size})") }
+          ) { Text("Refresh (${state.items.size})", color = MaterialTheme.colorScheme.inverseOnSurface) }
         }
       }
     }
