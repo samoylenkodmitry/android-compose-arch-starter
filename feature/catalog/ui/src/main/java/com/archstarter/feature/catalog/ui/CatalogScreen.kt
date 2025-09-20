@@ -11,6 +11,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -29,9 +30,11 @@ import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
-import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun CatalogScreen(
@@ -98,6 +101,18 @@ fun CatalogScreen(
       rect.copy(top = glassTop, width = glassWidth, height = glassHeight)
     } else {
       null
+    }
+  }
+  val viewportHeightDp = remember(viewportSize, density) {
+    if (viewportSize.height == 0) 0.dp else with(density) { viewportSize.height.toDp() }
+  }
+  val centerSpacing = remember(viewportHeightDp, glassRect, targetGlassRect) {
+    if (viewportHeightDp == 0.dp) {
+      0.dp
+    } else {
+      val itemHeight = glassRect?.height ?: targetGlassRect?.height ?: 0.dp
+      val available = (viewportHeightDp - itemHeight).coerceAtLeast(0.dp)
+      available / 2f
     }
   }
   val centerGlassRect = remember(glassRect, viewportOffset, density) {
@@ -167,7 +182,10 @@ fun CatalogScreen(
         ) {
           LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(bottom = listBottomPadding),
+            contentPadding = PaddingValues(
+              top = centerSpacing,
+              bottom = centerSpacing + listBottomPadding
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
           ) {
             items(state.items, key = { it }) { id ->
@@ -176,6 +194,29 @@ fun CatalogScreen(
           }
         }
       }
+    }
+
+    LaunchedEffect(listState) {
+      snapshotFlow { listState.isScrollInProgress }
+        .collectLatest { isScrolling ->
+          if (!isScrolling) {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@collectLatest
+            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+            val centeredItem = visibleItems.minByOrNull { info ->
+              abs((info.offset + info.size / 2f) - viewportCenter)
+            } ?: return@collectLatest
+            val itemCenter = centeredItem.offset + centeredItem.size / 2f
+            val delta = itemCenter - viewportCenter
+            if (abs(delta) > 1f) {
+              val desiredOffset = (viewportCenter - centeredItem.size / 2f)
+                .roundToInt()
+                .coerceAtLeast(0)
+              listState.animateScrollToItem(centeredItem.index, desiredOffset)
+            }
+          }
+        }
     }
 
     val glassPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
