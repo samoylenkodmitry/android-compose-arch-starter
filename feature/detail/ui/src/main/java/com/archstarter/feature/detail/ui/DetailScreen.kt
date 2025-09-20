@@ -1,7 +1,6 @@
 package com.archstarter.feature.detail.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.offset
@@ -27,6 +26,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
+import com.archstarter.core.designsystem.LiquidGlassRect
+import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +49,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val highlightPaddingYPx = with(density) { highlightPaddingY.toPx() }
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
   var currentWord by remember { mutableStateOf("") }
-  var targetRect by remember { mutableStateOf<LiquidRect?>(null) }
+  var targetRect by remember { mutableStateOf<LiquidRectPx?>(null) }
   val animLeft = remember { Animatable(0f) }
   val animTop = remember { Animatable(0f) }
   val animWidth = remember { Animatable(0f) }
@@ -67,7 +68,27 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
 
   Column(Modifier.padding(16.dp)) {
     Text(state.title, style = MaterialTheme.typography.titleLarge)
-    Box {
+    val translation = state.highlightedTranslation
+    val highlightRect = if (state.highlightedWord != null && translation != null) {
+      val width = animWidth.value
+      val height = animHeight.value
+      if (width > 0f && height > 0f) {
+        with(density) {
+          LiquidGlassRect(
+            left = animLeft.value.toDp(),
+            top = animTop.value.toDp(),
+            width = width.toDp(),
+            height = height.toDp()
+          )
+        }
+      } else {
+        null
+      }
+    } else {
+      null
+    }
+
+    LiquidGlassRectOverlay(rect = highlightRect) {
       val content = state.content
       Text(
         text = content,
@@ -96,7 +117,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                     val expandedTop = top - highlightPaddingYPx
                     val expandedWidth = (right - left + highlightPaddingXPx * 2).coerceAtLeast(0f)
                     val expandedHeight = (bottom - top + highlightPaddingYPx * 2).coerceAtLeast(0f)
-                    targetRect = LiquidRect(expandedLeft, expandedTop, expandedWidth, expandedHeight)
+                    targetRect = LiquidRectPx(expandedLeft, expandedTop, expandedWidth, expandedHeight)
                     p.translate(normalized)
                   }
                 }
@@ -106,7 +127,6 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
           }
         }
       )
-      val translation = state.highlightedTranslation
       if (state.highlightedWord != null && translation != null) {
         val left = animLeft.value
         val top = animTop.value
@@ -119,10 +139,6 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
               .size(
                 with(density) { width.toDp() },
                 with(density) { height.toDp() }
-              )
-              .background(
-                MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
-                shape = MaterialTheme.shapes.small
               ),
             contentAlignment = Alignment.Center
           ) {
@@ -130,7 +146,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
               text = translation,
               modifier = Modifier.padding(horizontal = highlightPaddingX, vertical = highlightPaddingY),
               style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onSecondary,
+              color = MaterialTheme.colorScheme.onSurface,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis
             )
@@ -152,7 +168,7 @@ private class FakeDetailPresenter : DetailPresenter {
   override fun translate(word: String) {}
 }
 
-private data class LiquidRect(val left: Float, val top: Float, val width: Float, val height: Float)
+private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float)
 
 @Preview(showBackground = true)
 @Composable
