@@ -1,6 +1,7 @@
 package com.archstarter.feature.detail.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -212,7 +213,14 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
     if (state.ipa != null) {
       Text("IPA: ${state.ipa}", style = MaterialTheme.typography.bodySmall)
     }
-    Text("Source: ${state.sourceUrl}", style = MaterialTheme.typography.bodySmall)
+    val sourceUrl = state.sourceUrl
+    Text(
+      text = "Source: $sourceUrl",
+      style = MaterialTheme.typography.bodySmall,
+      modifier = Modifier.clickable(enabled = sourceUrl.isNotBlank()) {
+        p.onSourceClick(sourceUrl)
+      }
+    )
   }
 }
 
@@ -221,6 +229,7 @@ private class FakeDetailPresenter : DetailPresenter {
   override val state: StateFlow<DetailState> = _s
   override fun initOnce(params: Int) {}
   override fun translate(word: String) {}
+  override fun onSourceClick(url: String) {}
 }
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float) {
