@@ -103,8 +103,8 @@ fun CatalogScreen(
     }
   }
 
-  var skipSnap by remember { mutableStateOf(false) }
-  var lastSnapRequest by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+  var didSnapThisInteraction by remember { mutableStateOf(false) }
+  var snapInProgress by remember { mutableStateOf(false) }
   LaunchedEffect(listState) {
     snapshotFlow {
       val layoutInfo = listState.layoutInfo
@@ -120,11 +120,12 @@ fun CatalogScreen(
       .distinctUntilChanged()
       .collect { frame ->
         if (frame.isScrolling) {
-          skipSnap = false
-          lastSnapRequest = null
+          if (!snapInProgress) {
+            didSnapThisInteraction = false
+          }
           return@collect
         }
-        if (skipSnap) return@collect
+        if (didSnapThisInteraction) return@collect
         val info = frame.centeredItem ?: return@collect
         val viewportStart = frame.viewportStart.toFloat()
         val viewportEnd = frame.viewportEnd.toFloat()
@@ -138,19 +139,16 @@ fun CatalogScreen(
           val maxTop = (viewportStart + viewportSize - info.size).coerceAtLeast(minTop)
           val desiredTop = (viewportCenter - info.size / 2f).coerceIn(minTop, maxTop)
           val scrollOffset = (desiredTop - viewportStart).roundToInt()
-          val request = info.index to scrollOffset
-          if (lastSnapRequest == request) {
-            skipSnap = true
-          } else {
-            lastSnapRequest = request
+          didSnapThisInteraction = true
+          snapInProgress = true
+          try {
             listState.animateScrollToItem(
               index = info.index,
               scrollOffset = scrollOffset,
             )
-            lastSnapRequest = null
+          } finally {
+            snapInProgress = false
           }
-        } else {
-          lastSnapRequest = null
         }
       }
   }
