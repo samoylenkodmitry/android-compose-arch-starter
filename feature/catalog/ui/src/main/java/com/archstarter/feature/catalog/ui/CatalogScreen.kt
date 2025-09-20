@@ -79,10 +79,13 @@ fun CatalogScreen(
       val info = centeredItemInfo ?: return@derivedStateOf null
       if (viewportSize.width == 0 || viewportSize.height == 0) return@derivedStateOf null
       val layoutInfo = listState.layoutInfo
-      val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
-      val topPx = viewportCenter - info.size / 2f
-      val maxTopPx = (viewportSize.height - info.size).coerceAtLeast(0)
-      val clampedTopPx = topPx.coerceIn(0f, maxTopPx.toFloat())
+      val viewportStart = layoutInfo.viewportStartOffset
+      val viewportEnd = layoutInfo.viewportEndOffset
+      val viewportHeightPx = viewportEnd - viewportStart
+      if (viewportHeightPx <= 0) return@derivedStateOf null
+      val rawTopPx = (info.offset - viewportStart).toFloat()
+      val maxTopPx = (viewportHeightPx - info.size).coerceAtLeast(0)
+      val clampedTopPx = rawTopPx.coerceIn(0f, maxTopPx.toFloat())
       with(density) {
         LiquidGlassRect(
           left = 0.dp,
