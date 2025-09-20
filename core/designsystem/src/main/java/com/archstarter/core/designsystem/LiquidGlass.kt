@@ -2,6 +2,7 @@ package com.archstarter.core.designsystem
 
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
+import android.graphics.Shader
 import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -114,6 +115,7 @@ data class LiquidGlassRect(
     val width: Dp,
     val height: Dp,
     val tintColor: Color = Color.Transparent,
+    val blurRadius: Dp = 0.dp,
 ) {
     val isEmpty: Boolean get() = width <= 0.dp || height <= 0.dp
 }
@@ -187,6 +189,7 @@ fun LiquidGlassRectOverlay(
 private data class LiquidGlassRuntimeRect(
     val rect: Rect,
     val tintColor: Color,
+    val blurRadiusPx: Float,
 )
 
 private fun LiquidGlassRect.toRuntimeRect(
@@ -197,9 +200,11 @@ private fun LiquidGlassRect.toRuntimeRect(
     val heightPx = height.toPx()
     val leftPx = left.toPx() - overlayOffset.x
     val topPx = top.toPx() - overlayOffset.y
+    val blurPx = if (blurRadius > 0.dp) blurRadius.toPx() else 0f
     LiquidGlassRuntimeRect(
         rect = Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx),
         tintColor = tintColor,
+        blurRadiusPx = blurPx,
     )
 }
 
@@ -265,11 +270,19 @@ private fun createRuntimeEffect(
             runtimeRect.tintColor.alpha,
         )
 
+        val blurEffect = runtimeRect.blurRadiusPx.takeIf { it > 0f }?.let { radius ->
+            RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+        }
         val effect = RenderEffect.createRuntimeShaderEffect(shader, "background")
-        chainedEffect = if (chainedEffect == null) {
-            effect
+        val combinedEffect = if (blurEffect != null) {
+            RenderEffect.createChainEffect(effect, blurEffect)
         } else {
-            RenderEffect.createChainEffect(effect, chainedEffect)
+            effect
+        }
+        chainedEffect = if (chainedEffect == null) {
+            combinedEffect
+        } else {
+            RenderEffect.createChainEffect(combinedEffect, chainedEffect)
         }
     }
 

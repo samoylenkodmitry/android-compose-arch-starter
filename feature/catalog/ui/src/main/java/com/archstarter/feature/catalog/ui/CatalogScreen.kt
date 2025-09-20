@@ -108,7 +108,14 @@ fun CatalogScreen(
     }
   }
   val buttonGlassTint = Color(0xFF98A9CF)
-  val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density, buttonGlassTint) {
+  val buttonBlurRadius = 12.dp
+  val settingsGlassRect = remember(
+    settingsButtonOffset,
+    settingsButtonSize,
+    density,
+    buttonGlassTint,
+    buttonBlurRadius,
+  ) {
     val buttonOffset = settingsButtonOffset
     val buttonSize = settingsButtonSize
     if (buttonOffset == null || buttonSize == null) {
@@ -121,11 +128,18 @@ fun CatalogScreen(
           width = buttonSize.width.toDp(),
           height = buttonSize.height.toDp(),
           tintColor = buttonGlassTint,
+          blurRadius = buttonBlurRadius,
         )
       }
     }
   }
-  val refreshGlassRect = remember(refreshButtonOffset, refreshButtonSize, density, buttonGlassTint) {
+  val refreshGlassRect = remember(
+    refreshButtonOffset,
+    refreshButtonSize,
+    density,
+    buttonGlassTint,
+    buttonBlurRadius,
+  ) {
     val buttonOffset = refreshButtonOffset
     val buttonSize = refreshButtonSize
     if (buttonOffset == null || buttonSize == null) {
@@ -138,6 +152,7 @@ fun CatalogScreen(
           width = buttonSize.width.toDp(),
           height = buttonSize.height.toDp(),
           tintColor = buttonGlassTint,
+          blurRadius = buttonBlurRadius,
         )
       }
     }
