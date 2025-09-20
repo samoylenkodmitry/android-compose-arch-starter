@@ -13,10 +13,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.awaitFirstDown
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -30,9 +34,11 @@ import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
@@ -46,10 +52,13 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
   val state by p.state.collectAsStateWithLifecycle()
   val density = LocalDensity.current
+  val hapticFeedback = LocalHapticFeedback.current
   val highlightPaddingX = 12.dp
   val highlightPaddingY = 6.dp
   val highlightPaddingXPx = with(density) { highlightPaddingX.toPx() }
   val highlightPaddingYPx = with(density) { highlightPaddingY.toPx() }
+  val longPressPointerOffset = 56.dp
+  val longPressPointerOffsetPx = with(density) { longPressPointerOffset.toPx() }
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
   var highlightWordIndex by remember { mutableStateOf<Int?>(null) }
   var currentNormalizedWord by remember { mutableStateOf<String?>(null) }
@@ -162,48 +171,77 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
             displayBounds,
             words,
             highlightPaddingXPx,
-            highlightPaddingYPx
+            highlightPaddingYPx,
+            longPressPointerOffsetPx
           ) {
           awaitPointerEventScope {
-            while (true) {
-              val event = awaitPointerEvent()
-              val pos = event.changes.first().position
-              val layoutResult = layout ?: continue
-              if (displayContent.isEmpty()) {
-                event.changes.forEach { it.consume() }
-                continue
+            var offsetActivated = false
+            var lastRawPosition: Offset? = null
+            var longPressJob: Job? = null
+
+            fun process(rawPosition: Offset) {
+              val layoutResult = layout ?: return
+              if (displayContent.isEmpty()) return
+              val adjustedPosition = if (offsetActivated) {
+                rawPosition.copy(y = max(0f, rawPosition.y - longPressPointerOffsetPx))
+              } else {
+                rawPosition
               }
               val textLength = displayContent.length
               val rawOffset = layoutResult
-                .getOffsetForPosition(pos)
+                .getOffsetForPosition(adjustedPosition)
                 .coerceIn(0, textLength)
               val searchOffset = if (rawOffset == textLength) rawOffset - 1 else rawOffset
-              if (searchOffset < 0) {
-                event.changes.forEach { it.consume() }
-                continue
+              if (searchOffset < 0) return
+              val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) } ?: return
+              val entry = words.getOrNull(wordBounds.index) ?: return
+              val normalized = entry.normalized
+              if (normalized.isBlank()) return
+              layoutResult.toLiquidRect(
+                wordBounds.textBounds,
+                highlightPaddingXPx,
+                highlightPaddingYPx
+              )?.let { targetLocalRect = it }
+              if (highlightWordIndex != wordBounds.index) {
+                highlightWordIndex = wordBounds.index
               }
-              val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) }
-              if (wordBounds != null) {
-                val entry = words.getOrNull(wordBounds.index)
-                if (entry != null) {
-                  val normalized = entry.normalized
-                  if (normalized.isNotBlank()) {
-                    layoutResult.toLiquidRect(
-                      wordBounds.textBounds,
-                      highlightPaddingXPx,
-                      highlightPaddingYPx
-                    )?.let { targetLocalRect = it }
-                    if (highlightWordIndex != wordBounds.index) {
-                      highlightWordIndex = wordBounds.index
-                    }
-                    if (currentNormalizedWord != normalized) {
-                      currentNormalizedWord = normalized
-                      p.translate(normalized)
-                    }
+              if (currentNormalizedWord != normalized) {
+                currentNormalizedWord = normalized
+                p.translate(normalized)
+              }
+            }
+
+            while (true) {
+              val down = awaitFirstDown(requireUnconsumed = false)
+              down.consume()
+              offsetActivated = false
+              lastRawPosition = down.position
+              process(down.position)
+              longPressJob?.cancel()
+              longPressJob = launch {
+                delay(1_000L)
+                offsetActivated = true
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                lastRawPosition?.let { process(it) }
+              }
+              try {
+                while (true) {
+                  val event = awaitPointerEvent()
+                  val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                  if (!change.pressed) {
+                    change.consume()
+                    break
                   }
+                  lastRawPosition = change.position
+                  process(change.position)
+                  change.consume()
                 }
+              } finally {
+                longPressJob?.cancel()
+                longPressJob = null
+                offsetActivated = false
+                lastRawPosition = null
               }
-              event.changes.forEach { it.consume() }
             }
           }
         }
