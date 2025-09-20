@@ -1,6 +1,8 @@
 package com.archstarter.feature.detail.impl
 
 import androidx.lifecycle.SavedStateHandle
+import com.archstarter.core.common.app.App
+import com.archstarter.core.common.app.NavigationActions
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
@@ -25,7 +27,7 @@ class DetailViewModelTest {
   fun translateReusesCachedTranslation() = runTest {
     val article = sampleArticle()
     val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -49,7 +51,7 @@ class DetailViewModelTest {
   fun translateUsesCachedArticleTranslation() = runTest {
     val article = sampleArticle(original = "Original", translated = "Translated")
     val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -67,7 +69,7 @@ class DetailViewModelTest {
   fun translateCachesAcrossWordCaseDifferences() = runTest {
     val article = sampleArticle()
     val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -91,7 +93,7 @@ class DetailViewModelTest {
   fun prefetchPopulatesWordTranslations() = runTest {
     val article = sampleArticle(content = "Alpha beta alpha", original = "seed", translated = "sprout")
     val repo = FakeArticleRepo(article) { word, _ -> "${word.lowercase(Locale.ROOT)}-t" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -100,6 +102,30 @@ class DetailViewModelTest {
     assertEquals("sprout", translations["seed"])
     assertEquals("alpha-t", translations["alpha"])
     assertEquals("beta-t", translations["beta"])
+  }
+
+  @Test
+  fun onSourceClickOpensLink() = runTest {
+    val repo = FakeArticleRepo(null) { _, _ -> null }
+    val nav = RecordingNavigationActions()
+    val vm = DetailViewModel(repo, App(nav), ScreenBus(), SavedStateHandle())
+
+    vm.onSourceClick("")
+    vm.onSourceClick("https://example.com")
+
+    assertEquals(listOf("https://example.com"), nav.openedLinks)
+  }
+
+  private class RecordingNavigationActions : NavigationActions {
+    val openedLinks = mutableListOf<String>()
+
+    override fun openDetail(id: Int) {}
+
+    override fun openSettings() {}
+
+    override fun openLink(url: String) {
+      openedLinks += url
+    }
   }
 
   private fun sampleArticle(

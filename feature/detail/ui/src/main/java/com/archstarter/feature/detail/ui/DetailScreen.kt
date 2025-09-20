@@ -3,6 +3,7 @@ package com.archstarter.feature.detail.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
@@ -88,7 +92,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   }
 
   Column(Modifier.padding(16.dp)) {
-    Text(state.title, style = MaterialTheme.typography.titleLarge)
+    Text(state.title, style = MaterialTheme.typography.headlineSmall)
     val content = state.content
     val words = remember(content) { content.toWordEntries() }
     LaunchedEffect(content) {
@@ -112,7 +116,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       }
     }
     val translations = state.wordTranslations
-    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge
+    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp)
     val textMeasurer = rememberTextMeasurer()
     val measureTextWidth = remember(textMeasurer, textStyle) {
       { text: String ->
@@ -277,9 +281,16 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       )
     }
     if (state.ipa != null) {
-      Text("IPA: ${state.ipa}", style = MaterialTheme.typography.bodySmall)
+      Text("IPA: ${state.ipa}", style = MaterialTheme.typography.bodyMedium)
     }
-    Text("Source: ${state.sourceUrl}", style = MaterialTheme.typography.bodySmall)
+    val sourceUrl = state.sourceUrl
+    Text(
+      text = "Source: $sourceUrl",
+      style = MaterialTheme.typography.bodyMedium,
+      modifier = Modifier.clickable(enabled = sourceUrl.isNotBlank()) {
+        p.onSourceClick(sourceUrl)
+      }
+    )
   }
 }
 
@@ -288,6 +299,7 @@ private class FakeDetailPresenter : DetailPresenter {
   override val state: StateFlow<DetailState> = _s
   override fun initOnce(params: Int) {}
   override fun translate(word: String) {}
+  override fun onSourceClick(url: String) {}
 }
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float) {

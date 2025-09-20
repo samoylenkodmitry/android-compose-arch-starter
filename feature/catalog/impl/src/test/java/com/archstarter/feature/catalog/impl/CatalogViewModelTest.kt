@@ -38,7 +38,11 @@ class CatalogViewModelTest {
       override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
       override suspend fun translate(word: String): String? = word
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val nav = object : NavigationActions {
+      override fun openDetail(id: Int) {}
+      override fun openSettings() {}
+      override fun openLink(url: String) {}
+    }
     val bridge = CatalogBridge()
     val screenBus = ScreenBus()
     val handle = SavedStateHandle()
@@ -68,7 +72,11 @@ class CatalogViewModelTest {
       override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
       override suspend fun translate(word: String): String? = word
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val nav = object : NavigationActions {
+      override fun openDetail(id: Int) {}
+      override fun openSettings() {}
+      override fun openLink(url: String) {}
+    }
     val bridge = CatalogBridge()
     val screenBus = ScreenBus()
     val handle = SavedStateHandle()
@@ -93,7 +101,11 @@ class CatalogViewModelTest {
       override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
       override suspend fun translate(word: String): String? = word
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val nav = object : NavigationActions {
+      override fun openDetail(id: Int) {}
+      override fun openSettings() {}
+      override fun openLink(url: String) {}
+    }
     val bridge = CatalogBridge()
     val screenBus = ScreenBus()
     val handle = SavedStateHandle()
