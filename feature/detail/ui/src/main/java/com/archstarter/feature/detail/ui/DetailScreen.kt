@@ -41,9 +41,8 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   val highlightPaddingXPx = with(density) { highlightPaddingX.toPx() }
   val highlightPaddingYPx = with(density) { highlightPaddingY.toPx() }
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-  var currentWord by remember { mutableStateOf("") }
-  var highlightRange by remember { mutableStateOf<TextBounds?>(null) }
-  var translationRange by remember { mutableStateOf<TextBounds?>(null) }
+  var highlightWordIndex by remember { mutableStateOf<Int?>(null) }
+  var currentNormalizedWord by remember { mutableStateOf<String?>(null) }
   var targetRect by remember { mutableStateOf<LiquidRectPx?>(null) }
   val animLeft = remember { Animatable(0f) }
   val animTop = remember { Animatable(0f) }
@@ -61,34 +60,32 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
     }
   }
 
-  LaunchedEffect(state.highlightedWord, state.highlightedTranslation, highlightRange) {
-    val translatedWord = state.highlightedWord
-    val translation = state.highlightedTranslation
-    translationRange = if (
-      translatedWord != null &&
-      translation != null &&
-      highlightRange != null &&
-      translatedWord == currentWord
-    ) {
-      highlightRange
-    } else if (translation == null || translatedWord != currentWord) {
-      null
-    } else {
-      translationRange
-    }
-  }
-
   Column(Modifier.padding(16.dp)) {
     Text(state.title, style = MaterialTheme.typography.titleLarge)
-    val translation = state.highlightedTranslation
     val content = state.content
-    val translationBounds = translationRange
-    val displayContent = if (translation != null && translationBounds != null) {
-      content.replaceRange(translationBounds.start, translationBounds.end, translation)
-    } else {
-      content
+    val words = remember(content) { content.toWordEntries() }
+    LaunchedEffect(content) {
+      highlightWordIndex = null
+      currentNormalizedWord = null
+      targetRect = null
+      animLeft.snapTo(0f)
+      animTop.snapTo(0f)
+      animWidth.snapTo(0f)
+      animHeight.snapTo(0f)
     }
-    val highlightRect = if (translation != null && translationBounds != null) {
+    val activeTranslation = state.highlightedTranslation?.takeIf {
+      val normalized = currentNormalizedWord
+      normalized != null && normalized == state.highlightedWord
+    }
+    val display = remember(content, words, highlightWordIndex, activeTranslation) {
+      buildDisplayContent(content, words, highlightWordIndex, activeTranslation)
+    }
+    val displayContent = display.text
+    val displayBounds = display.bounds
+    val highlightBounds = highlightWordIndex?.let { index ->
+      displayBounds.firstOrNull { it.index == index }?.textBounds
+    }
+    val highlightRect = if (highlightWordIndex != null) {
       val width = animWidth.value
       val height = animHeight.value
       if (width > 0f && height > 0f) {
@@ -112,23 +109,18 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
         text = displayContent,
         onTextLayout = { result ->
           layout = result
-          val translationSnapshot = translationBounds
-          val activeRange = translationSnapshot ?: highlightRange
-          if (activeRange != null) {
-            val translationLength = translation?.length
-            val displayRange = activeRange.toDisplayRange(translationSnapshot, translationLength)
-            if (displayRange.isValidFor(displayContent)) {
-              result.toLiquidRect(displayRange, highlightPaddingXPx, highlightPaddingYPx)?.let {
-                targetRect = it
-              }
+          val range = highlightBounds
+          if (range != null) {
+            result.toLiquidRect(range, highlightPaddingXPx, highlightPaddingYPx)?.let {
+              targetRect = it
             }
           }
         },
         modifier = Modifier.pointerInput(
           content,
           displayContent,
-          translationRange,
-          translation,
+          displayBounds,
+          words,
           highlightPaddingXPx,
           highlightPaddingYPx
         ) {
@@ -137,31 +129,35 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
               val event = awaitPointerEvent()
               val pos = event.changes.first().position
               val layoutResult = layout ?: continue
-              val translationSnapshot = translationRange
-              val displayIndex = layoutResult
+              if (displayContent.isEmpty()) {
+                event.changes.forEach { it.consume() }
+                continue
+              }
+              val textLength = displayContent.length
+              val rawOffset = layoutResult
                 .getOffsetForPosition(pos)
-                .coerceIn(0, displayContent.length)
-              val boundary = layoutResult.getWordBoundary(displayIndex)
-              if (boundary.end > boundary.start) {
-                val displayRange = TextBounds(boundary.start, boundary.end)
-                val originalRange = displayRange.toOriginalRange(translationSnapshot, translation?.length)
-                if (originalRange.isValidFor(content)) {
-                  val normalized = content
-                    .substring(originalRange.start, originalRange.end)
-                    .trim { !it.isLetterOrDigit() }
+                .coerceIn(0, textLength)
+              val searchOffset = if (rawOffset == textLength) rawOffset - 1 else rawOffset
+              if (searchOffset < 0) {
+                event.changes.forEach { it.consume() }
+                continue
+              }
+              val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) }
+              if (wordBounds != null) {
+                val entry = words.getOrNull(wordBounds.index)
+                if (entry != null) {
+                  val normalized = entry.normalized
                   if (normalized.isNotBlank()) {
-                    val highlightDisplayRange = originalRange.toDisplayRange(translationSnapshot, translation?.length)
-                    if (highlightDisplayRange.isValidFor(displayContent)) {
-                      layoutResult.toLiquidRect(
-                        highlightDisplayRange,
-                        highlightPaddingXPx,
-                        highlightPaddingYPx
-                      )?.let { targetRect = it }
+                    layoutResult.toLiquidRect(
+                      wordBounds.textBounds,
+                      highlightPaddingXPx,
+                      highlightPaddingYPx
+                    )?.let { targetRect = it }
+                    if (highlightWordIndex != wordBounds.index) {
+                      highlightWordIndex = wordBounds.index
                     }
-                    if (highlightRange != originalRange) {
-                      highlightRange = originalRange
-                      translationRange = null
-                      currentWord = normalized
+                    if (currentNormalizedWord != normalized) {
+                      currentNormalizedWord = normalized
                       p.translate(normalized)
                     }
                   }
@@ -193,42 +189,110 @@ private data class TextBounds(val start: Int, val end: Int) {
   val length: Int get() = end - start
 }
 
-private fun TextBounds.isValidFor(text: String): Boolean =
-  start >= 0 && end <= text.length && start < end
+private data class WordEntry(
+  val index: Int,
+  val start: Int,
+  val end: Int,
+  val text: String,
+  val normalized: String,
+  val prefix: String,
+  val suffix: String
+)
 
-private fun TextBounds.toOriginalRange(
-  translationRange: TextBounds?,
-  translationLength: Int?
-): TextBounds {
-  if (translationRange == null || translationLength == null) return this
-  val originalLength = translationRange.length
-  val delta = translationLength - originalLength
-  val mappedStart = when {
-    start < translationRange.start -> start
-    start < translationRange.start + translationLength -> translationRange.start
-    else -> start - delta
-  }
-  val mappedEnd = when {
-    end <= translationRange.start -> end
-    end <= translationRange.start + translationLength -> translationRange.end
-    else -> end - delta
-  }
-  return TextBounds(mappedStart, mappedEnd)
+private data class DisplayContent(
+  val text: String,
+  val bounds: List<DisplayWordBounds>
+)
+
+private data class DisplayWordBounds(val index: Int, val start: Int, val end: Int) {
+  fun contains(offset: Int): Boolean = offset in start until end
+  val textBounds: TextBounds get() = TextBounds(start, end)
 }
 
-private fun TextBounds.toDisplayRange(
-  translationRange: TextBounds?,
-  translationLength: Int?
-): TextBounds {
-  if (translationRange == null || translationLength == null) return this
-  val originalLength = translationRange.length
-  val delta = translationLength - originalLength
-  return when {
-    this == translationRange -> TextBounds(start, start + translationLength)
-    end <= translationRange.start -> this
-    start >= translationRange.end -> TextBounds(start + delta, end + delta)
-    else -> this
+private fun String.toWordEntries(): List<WordEntry> {
+  if (isEmpty()) return emptyList()
+  val entries = mutableListOf<WordEntry>()
+  var index = 0
+  var pos = 0
+  while (pos < length) {
+    while (pos < length && this[pos].isWhitespace()) {
+      pos++
+    }
+    if (pos >= length) break
+    val start = pos
+    while (pos < length && !this[pos].isWhitespace()) {
+      pos++
+    }
+    val end = pos
+    val word = substring(start, end)
+    val firstLetter = word.indexOfFirst { it.isLetterOrDigit() }
+    if (firstLetter == -1) {
+      entries += WordEntry(
+        index = index++,
+        start = start,
+        end = end,
+        text = word,
+        normalized = "",
+        prefix = word,
+        suffix = ""
+      )
+    } else {
+      val lastLetter = word.indexOfLast { it.isLetterOrDigit() }
+      val prefix = if (firstLetter > 0) word.substring(0, firstLetter) else ""
+      val suffix = if (lastLetter + 1 < word.length) word.substring(lastLetter + 1) else ""
+      val normalized = word.substring(firstLetter, lastLetter + 1)
+      entries += WordEntry(
+        index = index++,
+        start = start,
+        end = end,
+        text = word,
+        normalized = normalized,
+        prefix = prefix,
+        suffix = suffix
+      )
+    }
   }
+  return entries
+}
+
+private fun buildDisplayContent(
+  content: String,
+  words: List<WordEntry>,
+  highlightIndex: Int?,
+  translation: String?
+): DisplayContent {
+  if (words.isEmpty()) return DisplayContent(content, emptyList())
+  val builder = StringBuilder(content.length + (translation?.length ?: 0))
+  val bounds = ArrayList<DisplayWordBounds>(words.size)
+  var cursor = 0
+  for (entry in words) {
+    if (cursor < entry.start) {
+      builder.append(content, cursor, entry.start)
+    }
+    val start = builder.length
+    val displayWord = if (
+      highlightIndex != null &&
+      translation != null &&
+      entry.index == highlightIndex &&
+      entry.normalized.isNotEmpty()
+    ) {
+      buildString {
+        append(entry.prefix)
+        append(translation)
+        append(entry.suffix)
+      }
+    } else {
+      entry.text
+    }
+    builder.append(displayWord)
+    val end = builder.length
+    bounds += DisplayWordBounds(entry.index, start, end)
+    cursor = entry.end
+  }
+  if (cursor < content.length) {
+    builder.append(content, cursor, content.length)
+  }
+  return DisplayContent(builder.toString(), bounds)
 }
 
 private fun TextLayoutResult.toLiquidRect(
