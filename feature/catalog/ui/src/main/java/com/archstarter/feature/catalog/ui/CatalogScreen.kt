@@ -57,7 +57,8 @@ fun CatalogScreen(
       }
     }
   }
-  val targetGlassRect by remember {
+  val centerGlassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+  val targetGlassRect by remember(centerGlassTint) {
     derivedStateOf {
       val info = centeredItemInfo ?: return@derivedStateOf null
       if (viewportSize.width == 0 || viewportSize.height == 0) return@derivedStateOf null
@@ -72,6 +73,7 @@ fun CatalogScreen(
           top = clampedTopPx.toDp(),
           width = viewportSize.width.toDp(),
           height = info.size.toDp(),
+          tintColor = centerGlassTint,
         )
       }
     }
@@ -105,7 +107,7 @@ fun CatalogScreen(
       rect.copy(left = rect.left + offsetX, top = rect.top + offsetY)
     }
   }
-  val buttonGlassTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+  val buttonGlassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
   val settingsGlassRect = remember(settingsButtonOffset, settingsButtonSize, density, buttonGlassTint) {
     val buttonOffset = settingsButtonOffset
     val buttonSize = settingsButtonSize
@@ -176,7 +178,7 @@ fun CatalogScreen(
       }
     }
 
-    val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+    val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
     val transparentButtonColors = ButtonDefaults.buttonColors(
       containerColor = Color.Transparent,
       contentColor = MaterialTheme.colorScheme.onSurface,
@@ -192,7 +194,7 @@ fun CatalogScreen(
     Row(
       modifier = Modifier
         .align(Alignment.BottomCenter)
-        .padding(horizontal = 16.dp, vertical = 16.dp)
+        .padding(horizontal = 16.dp, vertical = 8.dp)
         .navigationBarsPadding()
         .onSizeChanged { size ->
           bottomControlsHeight = with(density) { size.height.toDp() }
