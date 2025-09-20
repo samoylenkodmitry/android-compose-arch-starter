@@ -10,9 +10,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
@@ -38,6 +41,11 @@ fun CatalogScreen(
   val density = LocalDensity.current
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
   var bottomControlsSize by remember { mutableStateOf(IntSize.Zero) }
+  var overlayRootOffset by remember { mutableStateOf<Offset?>(null) }
+  var settingsButtonRootOffset by remember { mutableStateOf<Offset?>(null) }
+  var refreshButtonRootOffset by remember { mutableStateOf<Offset?>(null) }
+  var settingsButtonSize by remember { mutableStateOf<IntSize?>(null) }
+  var refreshButtonSize by remember { mutableStateOf<IntSize?>(null) }
   val centeredItemInfo by remember {
     derivedStateOf {
       val info = listState.layoutInfo
@@ -88,21 +96,48 @@ fun CatalogScreen(
       null
     }
   }
-  val bottomGlassRect = remember(bottomControlsSize, density) {
-    if (bottomControlsSize.width == 0 || bottomControlsSize.height == 0) {
-      null
-    } else {
-      val widthDp = (bottomControlsSize.width.toFloat() / density.density).dp
-      val heightDp = (bottomControlsSize.height.toFloat() / density.density).dp
-      LiquidGlassRect(
-        left = 0.dp,
-        top = 0.dp,
-        width = widthDp,
-        height = heightDp,
-      )
+  val densityValue = density.density
+  val settingsGlassRect by remember(overlayRootOffset, settingsButtonRootOffset, settingsButtonSize, densityValue) {
+    derivedStateOf {
+      val overlayOffset = overlayRootOffset
+      val buttonOffset = settingsButtonRootOffset
+      val buttonSize = settingsButtonSize
+      if (overlayOffset == null || buttonOffset == null || buttonSize == null) {
+        null
+      } else {
+        val left = ((buttonOffset.x - overlayOffset.x) / densityValue).dp
+        val top = ((buttonOffset.y - overlayOffset.y) / densityValue).dp
+        val width = (buttonSize.width.toFloat() / densityValue).dp
+        val height = (buttonSize.height.toFloat() / densityValue).dp
+        LiquidGlassRect(left = left, top = top, width = width, height = height)
+      }
     }
   }
-  val listBottomPadding = 32.dp + (bottomGlassRect?.height ?: 0.dp)
+  val refreshGlassRect by remember(overlayRootOffset, refreshButtonRootOffset, refreshButtonSize, densityValue) {
+    derivedStateOf {
+      val overlayOffset = overlayRootOffset
+      val buttonOffset = refreshButtonRootOffset
+      val buttonSize = refreshButtonSize
+      if (overlayOffset == null || buttonOffset == null || buttonSize == null) {
+        null
+      } else {
+        val left = ((buttonOffset.x - overlayOffset.x) / densityValue).dp
+        val top = ((buttonOffset.y - overlayOffset.y) / densityValue).dp
+        val width = (buttonSize.width.toFloat() / densityValue).dp
+        val height = (buttonSize.height.toFloat() / densityValue).dp
+        LiquidGlassRect(left = left, top = top, width = width, height = height)
+      }
+    }
+  }
+  val bottomGlassRects = remember(settingsGlassRect, refreshGlassRect) {
+    listOfNotNull(settingsGlassRect, refreshGlassRect)
+  }
+  val bottomControlsHeight = if (bottomControlsSize.height == 0) {
+    0.dp
+  } else {
+    (bottomControlsSize.height.toFloat() / densityValue).dp
+  }
+  val listBottomPadding = 32.dp + bottomControlsHeight
 
   Box(Modifier.fillMaxSize()) {
     Column(
@@ -114,7 +149,7 @@ fun CatalogScreen(
       Spacer(Modifier.height(8.dp))
       Box(Modifier.weight(1f)) {
         LiquidGlassRectOverlay(
-          rect = glassRect,
+          rects = listOfNotNull(glassRect),
           modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { viewportSize = it }
@@ -133,21 +168,39 @@ fun CatalogScreen(
     }
 
     LiquidGlassRectOverlay(
-      rect = bottomGlassRect,
+      rects = bottomGlassRects,
       modifier = Modifier
         .align(Alignment.BottomCenter)
         .padding(horizontal = 16.dp, vertical = 16.dp)
         .navigationBarsPadding()
+        .onSizeChanged { bottomControlsSize = it }
+        .onGloballyPositioned { overlayRootOffset = it.positionInRoot() }
     ) {
+      val glassPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
       Row(
-        modifier = Modifier
-          .padding(horizontal = 20.dp, vertical = 12.dp)
-          .onSizeChanged { bottomControlsSize = it },
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Button(onClick = p::onSettingsClick) { Text("Settings") }
-        Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
+        Box(
+          modifier = Modifier.onGloballyPositioned { coords ->
+            settingsButtonRootOffset = coords.positionInRoot()
+            settingsButtonSize = coords.size
+          }
+        ) {
+          Box(modifier = Modifier.padding(glassPadding)) {
+            Button(onClick = p::onSettingsClick) { Text("Settings") }
+          }
+        }
+        Box(
+          modifier = Modifier.onGloballyPositioned { coords ->
+            refreshButtonRootOffset = coords.positionInRoot()
+            refreshButtonSize = coords.size
+          }
+        ) {
+          Box(modifier = Modifier.padding(glassPadding)) {
+            Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
+          }
+        }
       }
     }
   }
