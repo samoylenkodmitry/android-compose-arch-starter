@@ -91,9 +91,9 @@ fun AppNavHost(nav: NavHostController) {
                 DetailScreen(args.id)
             }
         }
-        composable<Settings> { 
+        composable<Settings> {
             ScreenScope {
-                SettingsScreen() 
+                SettingsScreen(onExit = { nav.popBackStack() })
             }
         }
     }

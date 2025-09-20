@@ -1,8 +1,10 @@
 package com.archstarter.feature.settings.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -41,7 +43,6 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
-import com.archstarter.core.common.scope.ScreenScope
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.settings.api.LanguageChooserParams
 import com.archstarter.feature.settings.api.LanguageChooserPresenter
@@ -60,12 +61,22 @@ fun SettingsScreen(
     presenter: SettingsPresenter? = null,
     nativeLanguagePresenter: LanguageChooserPresenter? = null,
     learningLanguagePresenter: LanguageChooserPresenter? = null,
+    onExit: () -> Unit = {},
 ) {
     val p = presenter ?: rememberPresenter<SettingsPresenter, Unit>()
     val state by p.state.collectAsStateWithLifecycle()
 
     Column(Modifier.padding(16.dp)) {
-        Text("Settings", style = MaterialTheme.typography.titleLarge)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Settings", style = MaterialTheme.typography.titleLarge)
+            OutlinedButton(onClick = onExit) {
+                Text("Exit")
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Text("Native language")
         Spacer(Modifier.height(4.dp))
@@ -91,18 +102,11 @@ private fun LanguageChooserField(
     selected: String,
     presenterOverride: LanguageChooserPresenter?,
 ) {
-    if (presenterOverride != null) {
-        LanguageChooserContent(presenterOverride)
-        return
-    }
-
-    ScreenScope(nested = true) {
-        val presenter = rememberPresenter<LanguageChooserPresenter, LanguageChooserParams>(
-            key = "language_${role.name}",
-            params = LanguageChooserParams(role = role, selectedLanguage = selected),
-        )
-        LanguageChooserContent(presenter)
-    }
+    val presenter = presenterOverride ?: rememberPresenter<LanguageChooserPresenter, LanguageChooserParams>(
+        key = "language_${role.name}",
+        params = LanguageChooserParams(role = role, selectedLanguage = selected),
+    )
+    LanguageChooserContent(presenter)
 }
 
 @Composable
