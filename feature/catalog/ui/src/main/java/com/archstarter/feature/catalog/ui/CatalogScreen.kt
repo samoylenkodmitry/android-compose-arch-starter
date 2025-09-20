@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +37,7 @@ fun CatalogScreen(
   val listState = rememberLazyListState()
   val density = LocalDensity.current
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
+  var bottomControlsSize by remember { mutableStateOf(IntSize.Zero) }
   val centeredItemInfo by remember {
     derivedStateOf {
       val info = listState.layoutInfo
@@ -86,30 +88,66 @@ fun CatalogScreen(
       null
     }
   }
+  val bottomGlassRect = remember(bottomControlsSize, density) {
+    if (bottomControlsSize.width == 0 || bottomControlsSize.height == 0) {
+      null
+    } else {
+      val widthDp = (bottomControlsSize.width.toFloat() / density.density).dp
+      val heightDp = (bottomControlsSize.height.toFloat() / density.density).dp
+      LiquidGlassRect(
+        left = 0.dp,
+        top = 0.dp,
+        width = widthDp,
+        height = heightDp,
+      )
+    }
+  }
+  val listBottomPadding = 32.dp + (bottomGlassRect?.height ?: 0.dp)
 
-  Column(Modifier.fillMaxSize().padding(16.dp)) {
-    Text("Catalog", style = MaterialTheme.typography.titleLarge)
-    Spacer(Modifier.height(8.dp))
-    Button(onClick = p::onSettingsClick) { Text("Settings") }
-    Spacer(Modifier.height(8.dp))
-    Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
-    Spacer(Modifier.height(8.dp))
-    Box(Modifier.weight(1f)) {
-      LiquidGlassRectOverlay(
-        rect = glassRect,
-        modifier = Modifier
-          .fillMaxSize()
-          .onSizeChanged { viewportSize = it }
-      ) {
-        LazyColumn(
-          state = listState,
-          contentPadding = PaddingValues(bottom = 8.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
+  Box(Modifier.fillMaxSize()) {
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(horizontal = 16.dp, vertical = 16.dp)
+    ) {
+      Text("Catalog", style = MaterialTheme.typography.titleLarge)
+      Spacer(Modifier.height(8.dp))
+      Box(Modifier.weight(1f)) {
+        LiquidGlassRectOverlay(
+          rect = glassRect,
+          modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { viewportSize = it }
         ) {
-          items(state.items, key = { it }) { id ->
-            CatalogItemCard(id = id)
+          LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(bottom = listBottomPadding),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            items(state.items, key = { it }) { id ->
+              CatalogItemCard(id = id)
+            }
           }
         }
+      }
+    }
+
+    LiquidGlassRectOverlay(
+      rect = bottomGlassRect,
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .padding(horizontal = 16.dp, vertical = 16.dp)
+        .navigationBarsPadding()
+    ) {
+      Row(
+        modifier = Modifier
+          .padding(horizontal = 20.dp, vertical = 12.dp)
+          .onSizeChanged { bottomControlsSize = it },
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Button(onClick = p::onSettingsClick) { Text("Settings") }
+        Button(onClick = p::onRefresh) { Text("Refresh (${state.items.size})") }
       }
     }
   }
