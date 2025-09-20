@@ -2,6 +2,8 @@ package com.archstarter.feature.catalog.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,9 +31,12 @@ import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
-import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.abs
+
+private const val TOP_SPACER_KEY = "catalog_top_spacer"
+private const val BOTTOM_SPACER_KEY = "catalog_bottom_spacer"
 
 @Composable
 fun CatalogScreen(
@@ -40,6 +45,10 @@ fun CatalogScreen(
   val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
   val state by p.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
+  val flingBehavior = rememberSnapFlingBehavior(
+    lazyListState = listState,
+    snapPosition = SnapPosition.Center
+  )
   val density = LocalDensity.current
   var viewportSize by remember { mutableStateOf(IntSize.Zero) }
   var viewportOffset by remember { mutableStateOf(Offset.Zero) }
@@ -52,8 +61,15 @@ fun CatalogScreen(
     derivedStateOf {
       val info = listState.layoutInfo
       val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2
-      info.visibleItemsInfo.minByOrNull {
-        abs((it.offset + it.size / 2) - viewportCenter)
+      val visibleItems = info.visibleItemsInfo.filterNot { item ->
+        item.key == TOP_SPACER_KEY || item.key == BOTTOM_SPACER_KEY
+      }
+      if (visibleItems.isEmpty()) {
+        null
+      } else {
+        visibleItems.minByOrNull {
+          abs((it.offset + it.size / 2) - viewportCenter)
+        }
       }
     }
   }
@@ -63,10 +79,13 @@ fun CatalogScreen(
       val info = centeredItemInfo ?: return@derivedStateOf null
       if (viewportSize.width == 0 || viewportSize.height == 0) return@derivedStateOf null
       val layoutInfo = listState.layoutInfo
-      val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
-      val topPx = viewportCenter - info.size / 2f
-      val maxTopPx = (viewportSize.height - info.size).coerceAtLeast(0)
-      val clampedTopPx = topPx.coerceIn(0f, maxTopPx.toFloat())
+      val viewportStart = layoutInfo.viewportStartOffset
+      val viewportEnd = layoutInfo.viewportEndOffset
+      val viewportHeightPx = viewportEnd - viewportStart
+      if (viewportHeightPx <= 0) return@derivedStateOf null
+      val rawTopPx = (info.offset - viewportStart).toFloat()
+      val maxTopPx = (viewportHeightPx - info.size).coerceAtLeast(0)
+      val clampedTopPx = rawTopPx.coerceIn(0f, maxTopPx.toFloat())
       with(density) {
         LiquidGlassRect(
           left = 0.dp,
@@ -143,6 +162,22 @@ fun CatalogScreen(
     }
   }
   val listBottomPadding = 32.dp + bottomControlsHeight
+  val itemSpacing = 8.dp
+  val centerItemPadding = run {
+    val viewportHeightPx = viewportSize.height
+    val itemHeightPx = centeredItemInfo?.size ?: 0
+    if (viewportHeightPx <= 0 || itemHeightPx <= 0) {
+      0.dp
+    } else {
+      val extraPx = (viewportHeightPx / 2f - itemHeightPx / 2f).coerceAtLeast(0f)
+      with(density) { extraPx.toDp() }
+    }
+  }
+  val edgeSpacerHeight = if (centerItemPadding > itemSpacing) {
+    centerItemPadding - itemSpacing
+  } else {
+    0.dp
+  }
   val glassRects = remember(centerGlassRect, settingsGlassRect, refreshGlassRect) {
     listOfNotNull(centerGlassRect, settingsGlassRect, refreshGlassRect)
   }
@@ -167,11 +202,18 @@ fun CatalogScreen(
         ) {
           LazyColumn(
             state = listState,
+            flingBehavior = flingBehavior,
             contentPadding = PaddingValues(bottom = listBottomPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(itemSpacing)
           ) {
+            item(key = TOP_SPACER_KEY) {
+              Spacer(Modifier.height(edgeSpacerHeight))
+            }
             items(state.items, key = { it }) { id ->
               CatalogItemCard(id = id)
+            }
+            item(key = BOTTOM_SPACER_KEY) {
+              Spacer(Modifier.height(edgeSpacerHeight))
             }
           }
         }
