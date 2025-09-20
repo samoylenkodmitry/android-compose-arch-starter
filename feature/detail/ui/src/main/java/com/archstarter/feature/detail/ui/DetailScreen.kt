@@ -15,8 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
@@ -30,6 +30,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
+import java.util.Locale
 
 @Composable
 fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
@@ -73,12 +74,13 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       animWidth.snapTo(0f)
       animHeight.snapTo(0f)
     }
+    val translations = state.wordTranslations
     val activeTranslation = state.highlightedTranslation?.takeIf {
       val normalized = currentNormalizedWord
       normalized != null && normalized == state.highlightedWord
     }
-    val display = remember(content, words, highlightWordIndex, activeTranslation) {
-      buildDisplayContent(content, words, highlightWordIndex, activeTranslation)
+    val display = remember(content, words, highlightWordIndex, activeTranslation, translations) {
+      buildDisplayContent(content, words, highlightWordIndex, activeTranslation, translations)
     }
     val displayContent = display.text
     val displayBounds = display.bounds
@@ -259,7 +261,8 @@ private fun buildDisplayContent(
   content: String,
   words: List<WordEntry>,
   highlightIndex: Int?,
-  translation: String?
+  translation: String?,
+  translations: Map<String, String>
 ): DisplayContent {
   if (words.isEmpty()) return DisplayContent(content, emptyList())
   val builder = StringBuilder(content.length + (translation?.length ?: 0))
@@ -270,19 +273,30 @@ private fun buildDisplayContent(
       builder.append(content, cursor, entry.start)
     }
     val start = builder.length
-    val displayWord = if (
-      highlightIndex != null &&
-      translation != null &&
-      entry.index == highlightIndex &&
-      entry.normalized.isNotEmpty()
-    ) {
+    val normalized = entry.normalized
+    val displayWord = if (normalized.isEmpty()) {
+      entry.text
+    } else {
+      val key = normalized.lowercase(Locale.ROOT)
+      val cachedTranslation = translations[key]?.takeIf { it.isNotEmpty() }
+      val isHighlighted = highlightIndex != null && translation != null && entry.index == highlightIndex
+      var targetLength = normalized.length
+      if (cachedTranslation != null) {
+        targetLength = max(targetLength, cachedTranslation.length)
+      }
+      val highlightedTranslation = translation?.takeIf { isHighlighted && it.isNotEmpty() }
+      if (highlightedTranslation != null) {
+        targetLength = max(targetLength, highlightedTranslation.length)
+      }
+      val displayCore = highlightedTranslation ?: normalized
       buildString {
         append(entry.prefix)
-        append(translation)
+        append(displayCore)
         append(entry.suffix)
+        if (targetLength > displayCore.length) {
+          repeat(targetLength - displayCore.length) { append(' ') }
+        }
       }
-    } else {
-      entry.text
     }
     builder.append(displayWord)
     val end = builder.length
