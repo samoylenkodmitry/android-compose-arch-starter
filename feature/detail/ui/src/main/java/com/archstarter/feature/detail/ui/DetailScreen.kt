@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.tooling.preview.Preview
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
@@ -50,11 +53,17 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
   var highlightWordIndex by remember { mutableStateOf<Int?>(null) }
   var currentNormalizedWord by remember { mutableStateOf<String?>(null) }
+  var targetLocalRect by remember { mutableStateOf<LiquidRectPx?>(null) }
   var targetRect by remember { mutableStateOf<LiquidRectPx?>(null) }
+  var textPositionInRoot by remember { mutableStateOf(Offset.Zero) }
   val animLeft = remember { Animatable(0f) }
   val animTop = remember { Animatable(0f) }
   val animWidth = remember { Animatable(0f) }
   val animHeight = remember { Animatable(0f) }
+
+  LaunchedEffect(targetLocalRect, textPositionInRoot) {
+    targetRect = targetLocalRect?.offsetBy(textPositionInRoot.x, textPositionInRoot.y)
+  }
 
   LaunchedEffect(targetRect) {
     targetRect?.let { rect ->
@@ -74,11 +83,22 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
     LaunchedEffect(content) {
       highlightWordIndex = null
       currentNormalizedWord = null
+      targetLocalRect = null
       targetRect = null
       animLeft.snapTo(0f)
       animTop.snapTo(0f)
       animWidth.snapTo(0f)
       animHeight.snapTo(0f)
+      val candidates = words.filter { it.normalized.isNotBlank() }
+      if (candidates.isNotEmpty()) {
+        val randomWord = candidates.random()
+        highlightWordIndex = randomWord.index
+        val normalized = randomWord.normalized
+        if (currentNormalizedWord != normalized) {
+          currentNormalizedWord = normalized
+          p.translate(normalized)
+        }
+      }
     }
     val translations = state.wordTranslations
     val textStyle: TextStyle = MaterialTheme.typography.bodyLarge
@@ -128,18 +148,22 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
           val range = highlightBounds
           if (range != null) {
             result.toLiquidRect(range, highlightPaddingXPx, highlightPaddingYPx)?.let {
-              targetRect = it
+              targetLocalRect = it
             }
           }
         },
-        modifier = Modifier.pointerInput(
-          content,
-          displayContent,
-          displayBounds,
-          words,
-          highlightPaddingXPx,
-          highlightPaddingYPx
-        ) {
+        modifier = Modifier
+          .onGloballyPositioned { coordinates ->
+            textPositionInRoot = coordinates.positionInRoot()
+          }
+          .pointerInput(
+            content,
+            displayContent,
+            displayBounds,
+            words,
+            highlightPaddingXPx,
+            highlightPaddingYPx
+          ) {
           awaitPointerEventScope {
             while (true) {
               val event = awaitPointerEvent()
@@ -168,7 +192,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                       wordBounds.textBounds,
                       highlightPaddingXPx,
                       highlightPaddingYPx
-                    )?.let { targetRect = it }
+                    )?.let { targetLocalRect = it }
                     if (highlightWordIndex != wordBounds.index) {
                       highlightWordIndex = wordBounds.index
                     }
@@ -199,7 +223,9 @@ private class FakeDetailPresenter : DetailPresenter {
   override fun translate(word: String) {}
 }
 
-private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float)
+private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float) {
+  fun offsetBy(dx: Float, dy: Float): LiquidRectPx = copy(left = left + dx, top = top + dy)
+}
 
 internal data class TextBounds(val start: Int, val end: Int) {
   val length: Int get() = end - start
