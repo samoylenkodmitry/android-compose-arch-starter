@@ -26,6 +26,7 @@ import dagger.multibindings.IntoMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class DetailViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
@@ -44,6 +45,7 @@ class DetailViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(DetailState())
     override val state: StateFlow<DetailState> = _state
     private var initialized = false
+    private val translationCache = mutableMapOf<String, String>()
 
     override fun initOnce(params: Int) {
         if (initialized) return
@@ -58,6 +60,7 @@ class DetailViewModel @AssistedInject constructor(
                     translatedWord = it.translatedWord,
                     ipa = it.ipa
                 )
+                cacheTranslation(it.originalWord, it.translatedWord)
                 screenBus.send("Detail loaded for article $params: ${it.title}")
             }
         }
@@ -65,13 +68,41 @@ class DetailViewModel @AssistedInject constructor(
 
     override fun translate(word: String) {
         viewModelScope.launch {
-            val translation = repo.translate(word) ?: return@launch
-            _state.value = _state.value.copy(
-                highlightedWord = word,
-                highlightedTranslation = translation
-            )
+            val normalizedWord = normalizeWord(word)
+            if (normalizedWord.isEmpty()) return@launch
+
+            translationCache[cacheKey(normalizedWord)]?.let { cached ->
+                updateHighlighted(normalizedWord, cached)
+                return@launch
+            }
+
+            val translation = repo.translate(normalizedWord)?.let(::normalizeTranslation)
+            if (translation.isNullOrEmpty()) return@launch
+
+            cacheTranslation(normalizedWord, translation)
+            updateHighlighted(normalizedWord, translation)
         }
     }
+
+    private fun updateHighlighted(word: String, translation: String) {
+        _state.value = _state.value.copy(
+            highlightedWord = word,
+            highlightedTranslation = translation
+        )
+    }
+
+    private fun cacheTranslation(word: String, translation: String) {
+        val normalizedWord = normalizeWord(word)
+        val normalizedTranslation = normalizeTranslation(translation)
+        if (normalizedWord.isEmpty() || normalizedTranslation.isEmpty()) return
+        translationCache[cacheKey(normalizedWord)] = normalizedTranslation
+    }
+
+    private fun normalizeWord(word: String): String = word.trim()
+
+    private fun normalizeTranslation(translation: String): String = translation.trim()
+
+    private fun cacheKey(word: String): String = word.lowercase(Locale.ROOT)
 
     @AssistedFactory
     interface Factory : AssistedVmFactory<DetailViewModel>
