@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -149,6 +150,19 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       null
     }
 
+    val layoutState = rememberUpdatedState(layout)
+    val displayContentState = rememberUpdatedState(displayContent)
+    val displayBoundsState = rememberUpdatedState(displayBounds)
+    val wordsState = rememberUpdatedState(words)
+    val translateState = rememberUpdatedState<(String) -> Unit> { normalized ->
+      p.translate(normalized)
+    }
+    val hapticState = rememberUpdatedState(hapticFeedback)
+    val viewConfigurationState = rememberUpdatedState(viewConfiguration)
+    val highlightPaddingXState = rememberUpdatedState(highlightPaddingXPx)
+    val highlightPaddingYState = rememberUpdatedState(highlightPaddingYPx)
+    val pointerOffsetState = rememberUpdatedState(longPressPointerOffsetPx)
+
     LiquidGlassRectOverlay(rect = highlightRect) {
       Text(
         text = displayContent,
@@ -166,49 +180,46 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
           .onGloballyPositioned { coordinates ->
             textPositionInRoot = coordinates.positionInRoot()
           }
-          .pointerInput(
-            content,
-            displayContent,
-            displayBounds,
-            words,
-            highlightPaddingXPx,
-            highlightPaddingYPx,
-            longPressPointerOffsetPx,
-            viewConfiguration
-          ) {
+          .pointerInput(Unit) {
             awaitEachGesture {
               var offsetActivated = false
               var lastRawPosition: Offset? = null
 
               fun process(rawPosition: Offset) {
-                val layoutResult = layout ?: return
-                if (displayContent.isEmpty()) return
+                val layoutResult = layoutState.value ?: return
+                val displayText = displayContentState.value
+                if (displayText.isEmpty()) return
+                val pointerOffset = pointerOffsetState.value
                 val adjustedPosition = if (offsetActivated) {
-                  rawPosition.copy(y = max(0f, rawPosition.y - longPressPointerOffsetPx))
+                  rawPosition.copy(y = max(0f, rawPosition.y - pointerOffset))
                 } else {
                   rawPosition
                 }
-                val textLength = displayContent.length
+                val textLength = displayText.length
                 val rawOffset = layoutResult
                   .getOffsetForPosition(adjustedPosition)
                   .coerceIn(0, textLength)
                 val searchOffset = if (rawOffset == textLength) rawOffset - 1 else rawOffset
                 if (searchOffset < 0) return
-                val wordBounds = displayBounds.firstOrNull { it.contains(searchOffset) } ?: return
-                val entry = words.getOrNull(wordBounds.index) ?: return
+                val bounds = displayBoundsState.value
+                val wordBounds = bounds.firstOrNull { it.contains(searchOffset) } ?: return
+                val entries = wordsState.value
+                val entry = entries.getOrNull(wordBounds.index) ?: return
                 val normalized = entry.normalized
                 if (normalized.isBlank()) return
+                val paddingX = highlightPaddingXState.value
+                val paddingY = highlightPaddingYState.value
                 layoutResult.toLiquidRect(
                   wordBounds.textBounds,
-                  highlightPaddingXPx,
-                  highlightPaddingYPx
+                  paddingX,
+                  paddingY
                 )?.let { targetLocalRect = it }
                 if (highlightWordIndex != wordBounds.index) {
                   highlightWordIndex = wordBounds.index
                 }
                 if (currentNormalizedWord != normalized) {
                   currentNormalizedWord = normalized
-                  p.translate(normalized)
+                  translateState.value(normalized)
                 }
               }
 
@@ -216,7 +227,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
               offsetActivated = false
               lastRawPosition = down.position
               process(down.position)
-              val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+              val longPressTimeout = viewConfigurationState.value.longPressTimeoutMillis
               val longPressDeadline = down.uptimeMillis + longPressTimeout
               var longPressTriggered = false
               var lastEventTime = down.uptimeMillis
@@ -238,7 +249,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                     if (!longPressTriggered) {
                       longPressTriggered = true
                       offsetActivated = true
-                      hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                      hapticState.value.performHapticFeedback(HapticFeedbackType.LongPress)
                       lastRawPosition?.let { process(it) }
                     }
                     continue
@@ -253,7 +264,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
                   if (!longPressTriggered && change.uptimeMillis >= longPressDeadline) {
                     longPressTriggered = true
                     offsetActivated = true
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    hapticState.value.performHapticFeedback(HapticFeedbackType.LongPress)
                   }
                   process(change.position)
                 }
