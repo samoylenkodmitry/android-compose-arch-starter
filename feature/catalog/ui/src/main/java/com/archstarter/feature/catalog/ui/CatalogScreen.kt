@@ -45,6 +45,17 @@ fun CatalogScreen(
   val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
   val state by p.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
+  var previousItems by remember { mutableStateOf<List<Int>>(emptyList()) }
+  LaunchedEffect(state.items) {
+    val newId = state.items.firstOrNull { id -> !previousItems.contains(id) }
+    previousItems = state.items
+    if (newId != null) {
+      val index = state.items.indexOf(newId)
+      if (index >= 0) {
+        listState.animateScrollToItem(index + 1) // +1 for the top spacer item
+      }
+    }
+  }
   val flingBehavior = rememberSnapFlingBehavior(
     lazyListState = listState,
     snapPosition = SnapPosition.Center
