@@ -8,7 +8,7 @@ import org.junit.Test
 class DetailDisplayFormatterTest {
 
   @Test
-  fun originalWordIsPaddedToTranslationWidth() {
+  fun cachedTranslationIsDisplayedByDefault() {
     val content = "Alpha beta"
     val words = content.toWordEntries()
     val translations = mapOf("beta" to "translated")
@@ -24,17 +24,9 @@ class DetailDisplayFormatterTest {
 
     val wordBounds = display.bounds[1]
     val segment = display.text.substring(wordBounds.start, wordBounds.end)
-    val padCount = translations.getValue("beta").length - "beta".length
-    val leadingPads = segment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
-    val trailingPads = segment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
+    val trimmed = segment.trim(DETAIL_DISPLAY_PAD_CHAR)
 
-    assertTrue(padCount > 0)
-    assertEquals("beta".length + padCount, segment.length)
-    assertEquals(padCount, leadingPads + trailingPads)
-    assertTrue(abs(leadingPads - trailingPads) <= 1)
-    assertTrue(leadingPads > 0)
-    assertTrue(trailingPads > 0)
-    assertEquals("beta", segment.substring(leadingPads, segment.length - trailingPads))
+    assertEquals("translated", trimmed)
   }
 
   @Test
@@ -110,19 +102,11 @@ class DetailDisplayFormatterTest {
       "Measured widths differ: base=$baseWidth highlight=$highlightWidth",
       abs(baseWidth - highlightWidth) < 0.01f
     )
-    val baseLeadingPads = baseSegment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
-    val baseTrailingPads = baseSegment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
-    val baseCore = baseSegment.substring(baseLeadingPads, baseSegment.length - baseTrailingPads)
-    val highlightLeadingPads = highlightSegment.takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
-    val highlightTrailingPads = highlightSegment.reversed().takeWhile { it == DETAIL_DISPLAY_PAD_CHAR }.length
-    val highlightCore = highlightSegment.substring(highlightLeadingPads, highlightSegment.length - highlightTrailingPads)
+    val baseTrimmed = baseSegment.trim(DETAIL_DISPLAY_PAD_CHAR)
+    val highlightTrimmed = highlightSegment.trim(DETAIL_DISPLAY_PAD_CHAR)
 
-    assertEquals("WWW", highlightCore)
-    assertEquals("ill", baseCore)
-    assertEquals(baseLeadingPads + baseTrailingPads + baseCore.length, baseSegment.length)
-    assertTrue(abs(baseLeadingPads - baseTrailingPads) <= 1)
-    assertTrue(baseLeadingPads > 0)
-    assertTrue(baseTrailingPads > 0)
+    assertEquals("WWW", highlightTrimmed)
+    assertEquals("WWW", baseTrimmed)
   }
 }
 

@@ -437,6 +437,9 @@ internal fun buildDisplayContent(
           paddedVariants[VariantKind.HIGHLIGHT]?.text
             ?: paddedVariants[VariantKind.CACHED]?.text
             ?: paddedVariants.getValue(VariantKind.BASE).text
+        cachedTranslation != null ->
+          paddedVariants[VariantKind.CACHED]?.text
+            ?: paddedVariants.getValue(VariantKind.BASE).text
         else -> paddedVariants.getValue(VariantKind.BASE).text
       }
     }
