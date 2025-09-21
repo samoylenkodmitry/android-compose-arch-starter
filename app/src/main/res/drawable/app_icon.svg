@@ -1,0 +1,47 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1F2A8C" />
+      <stop offset="50%" stop-color="#4C4FF0" />
+      <stop offset="100%" stop-color="#00B4D8" />
+    </linearGradient>
+    <linearGradient id="swirl" x1="120" y1="128" x2="396" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F9F871" />
+      <stop offset="40%" stop-color="#F3722C" />
+      <stop offset="100%" stop-color="#FF2D75" />
+    </linearGradient>
+    <linearGradient id="accent" x1="140" y1="136" x2="364" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(360 140) rotate(45) scale(90)">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+    <filter id="shadow" x="60" y="60" width="392" height="392" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#0B1038" flood-opacity="0.38" />
+    </filter>
+    <filter id="glow" x="80" y="80" width="352" height="352" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="18" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="120" fill="url(#bg)" />
+  <g filter="url(#shadow)">
+    <path d="M256 120C178 120 110 190 110 272C110 340 156 398 212 416L248 324H196L256 160L316 324H264L300 416C356 398 402 340 402 272C402 190 334 120 256 120Z" fill="url(#swirl)" />
+  </g>
+  <path d="M178 238C190 190 229 160 272 160C328 160 368 206 374 254H410C404 180 338 120 256 120C181 120 119 176 110 246H150 C155 236 168 216 178 238Z" fill="url(#accent)" />
+  <path d="M200 356C218 376 242 388 266 388C290 388 314 376 332 356L320 326C308 342 290 352 270 352C248 352 228 340 216 320L200 356Z" fill="#1B1D5C" opacity="0.35" />
+  <path d="M148 302C152 344 178 382 216 398L238 344C210 330 192 302 188 268L148 302Z" fill="#00F5D4" opacity="0.4" />
+  <circle cx="360" cy="140" r="68" fill="url(#orb)" />
+  <g filter="url(#glow)">
+    <path d="M248 212C228 212 212 228 212 248C212 268 228 284 248 284H288C308 284 324 268 324 248C324 228 308 212 288 212H248Z" fill="#FFFFFF" fill-opacity="0.25" />
+  </g>
+  <path d="M248 220C234 220 224 230 224 244C224 258 234 268 248 268H288C302 268 312 258 312 244C312 230 302 220 288 220H248Z" fill="#F1F5FF" fill-opacity="0.35" />
+  <path d="M252 240H284C290 240 294 244 294 250C294 256 290 260 284 260H252C246 260 242 256 242 250C242 244 246 240 252 240Z" fill="#FFFFFF" fill-opacity="0.7" />
+  <path d="M128 186C152 154 188 134 228 130L210 110C166 116 122 140 94 180L128 186Z" fill="#90E0EF" fill-opacity="0.4" />
+  <path d="M384 388C350 424 302 444 256 444C214 444 174 430 142 406L122 430C162 462 210 480 256 480C310 480 360 458 398 422L384 388Z" fill="#03045E" fill-opacity="0.35" />
+</svg>
