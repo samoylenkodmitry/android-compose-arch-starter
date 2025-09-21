@@ -2,7 +2,6 @@ package com.archstarter.feature.catalog.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
@@ -17,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -29,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
+import com.archstarter.core.designsystem.GwernDecoratedSpacer
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
@@ -36,7 +35,6 @@ import com.archstarter.feature.catalog.api.CatalogState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
-import kotlin.math.min
 
 private const val TOP_SPACER_KEY = "catalog_top_spacer"
 private const val BOTTOM_SPACER_KEY = "catalog_bottom_spacer"
@@ -280,100 +278,6 @@ fun CatalogScreen(
         }
       }
     }
-  }
-}
-
-@Composable
-private fun GwernDecoratedSpacer(
-  height: Dp,
-  isTop: Boolean,
-  modifier: Modifier = Modifier,
-) {
-  val coercedHeight = height.coerceAtLeast(0.dp)
-  if (coercedHeight <= 0.dp) {
-    Spacer(modifier.height(coercedHeight))
-    return
-  }
-
-  val density = LocalDensity.current
-  val accentColor = Color(0xFFAD8A4A)
-  val backgroundTop = Color(0xFFF7F5EF)
-  val backgroundBottom = Color(0xFFF0EFEA)
-  val borderColor = Color(0xFF9C9C9C)
-  val stripeColor = accentColor.copy(alpha = 0.18f)
-
-  Canvas(
-    modifier
-      .fillMaxWidth()
-      .height(coercedHeight)
-  ) {
-    val widthPx = size.width
-    val heightPx = size.height
-    val backgroundBrush = if (isTop) {
-      Brush.verticalGradient(listOf(backgroundBottom, backgroundTop))
-    } else {
-      Brush.verticalGradient(listOf(backgroundTop, backgroundBottom))
-    }
-    drawRect(brush = backgroundBrush)
-
-    val stripeSpacing = with(density) { 22.dp.toPx() }
-    val stripeStrokeWidth = with(density) { 0.75.dp.toPx() }
-    if (stripeSpacing > 0f && stripeStrokeWidth > 0f) {
-      var startX = -heightPx
-      while (startX < widthPx + heightPx) {
-        val startY = if (isTop) heightPx else 0f
-        val endY = if (isTop) 0f else heightPx
-        drawLine(
-          color = stripeColor,
-          start = Offset(startX, startY),
-          end = Offset(startX + heightPx, endY),
-          strokeWidth = stripeStrokeWidth,
-        )
-        startX += stripeSpacing
-      }
-    }
-
-    val accentStrokeWidth = with(density) { 1.25.dp.toPx() }
-    val accentMargin = min(heightPx / 3f, with(density) { 12.dp.toPx() })
-    val accentY = if (isTop) heightPx - accentMargin else accentMargin
-    drawLine(
-      color = accentColor,
-      start = Offset(0f, accentY),
-      end = Offset(widthPx, accentY),
-      strokeWidth = accentStrokeWidth,
-    )
-
-    val dotRadius = min(with(density) { 2.5.dp.toPx() }, accentMargin / 1.8f)
-    val dotSpacing = with(density) { 20.dp.toPx() }
-    if (dotSpacing > 0f && dotRadius > 0f) {
-      var x = dotSpacing / 2f
-      while (x < widthPx) {
-        drawCircle(
-          color = accentColor.copy(alpha = 0.85f),
-          radius = dotRadius,
-          center = Offset(x, accentY),
-        )
-        drawCircle(
-          color = Color(0xFFF9F7F1),
-          radius = dotRadius * 0.45f,
-          center = Offset(x, accentY),
-        )
-        x += dotSpacing
-      }
-    }
-
-    val borderStrokeWidth = with(density) { 1.dp.toPx() }
-    val borderY = if (isTop) {
-      heightPx - borderStrokeWidth / 2f
-    } else {
-      borderStrokeWidth / 2f
-    }
-    drawLine(
-      color = borderColor,
-      start = Offset(0f, borderY),
-      end = Offset(widthPx, borderY),
-      strokeWidth = borderStrokeWidth,
-    )
   }
 }
 
