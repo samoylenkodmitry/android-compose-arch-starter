@@ -8,7 +8,10 @@ android {
   namespace = "com.archstarter.feature.catalog.ui"
   compileSdk = 35
   defaultConfig { minSdk = 24 }
-  buildFeatures { compose = true }
+  buildFeatures {
+    compose = true
+    buildConfig = true
+  }
   composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.get() }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_21

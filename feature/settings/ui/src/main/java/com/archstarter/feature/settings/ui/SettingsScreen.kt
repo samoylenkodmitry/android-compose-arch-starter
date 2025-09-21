@@ -41,8 +41,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.common.scope.ScreenScope
 import com.archstarter.core.designsystem.AppTheme
@@ -53,6 +53,7 @@ import com.archstarter.feature.settings.api.LanguageChooserState
 import com.archstarter.feature.settings.api.SettingsPresenter
 import com.archstarter.feature.settings.api.SettingsState
 import com.archstarter.feature.settings.api.supportedLanguages
+import com.archstarter.feature.settings.ui.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -359,15 +360,27 @@ private class FakeLanguageChooserPresenter(
 }
 
 @Suppress("unused")
-private val settingsPreviewMocks = registerPresenterMocks(
-    presenterMock<SettingsPresenter> { FakeSettingsPresenter() },
-    presenterMock<LanguageChooserPresenter>(
-        key = languagePresenterKey(LanguageChooserRole.Native),
-    ) { FakeLanguageChooserPresenter("English") },
-    presenterMock<LanguageChooserPresenter>(
-        key = languagePresenterKey(LanguageChooserRole.Learning),
-    ) { FakeLanguageChooserPresenter("Spanish") },
-)
+private val settingsPreviewMocks = if (BuildConfig.DEBUG) {
+    val settingsPresenter = FakeSettingsPresenter()
+    val nativeLanguagePresenter = FakeLanguageChooserPresenter("English")
+    val learningLanguagePresenter = FakeLanguageChooserPresenter("Spanish")
+
+    MocksMap[PresenterMockKey(SettingsPresenter::class, null)] = settingsPresenter
+    MocksMap[
+        PresenterMockKey(
+            LanguageChooserPresenter::class,
+            languagePresenterKey(LanguageChooserRole.Native),
+        )
+    ] = nativeLanguagePresenter
+    MocksMap[
+        PresenterMockKey(
+            LanguageChooserPresenter::class,
+            languagePresenterKey(LanguageChooserRole.Learning),
+        )
+    ] = learningLanguagePresenter
+} else {
+    Unit
+}
 
 @androidx.compose.ui.tooling.preview.Preview(showBackground = true)
 @Composable

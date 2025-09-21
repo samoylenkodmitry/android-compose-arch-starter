@@ -12,12 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
+import com.archstarter.feature.catalog.ui.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -71,10 +72,16 @@ private class FakeCatalogItemPresenter : CatalogItemPresenter {
   }
 }
 
+private val catalogItemPreviewKeys = listOf<String?>(null, "item1", "item2", "item3", "item4", "item5")
+
 @Suppress("unused")
-private val catalogItemPreviewMocks = registerPresenterMocks(
-  presenterMock<CatalogItemPresenter> { FakeCatalogItemPresenter() },
-)
+private val catalogItemPreviewMocks = if (BuildConfig.DEBUG) {
+  catalogItemPreviewKeys.forEach { key ->
+    MocksMap[PresenterMockKey(CatalogItemPresenter::class, key)] = FakeCatalogItemPresenter()
+  }
+} else {
+  Unit
+}
 
 @Preview
 @Composable

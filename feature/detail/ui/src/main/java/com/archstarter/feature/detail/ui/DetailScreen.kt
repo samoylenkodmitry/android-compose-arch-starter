@@ -21,14 +21,15 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
+import com.archstarter.feature.detail.ui.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.coroutineScope
@@ -207,9 +208,11 @@ private class FakeDetailPresenter : DetailPresenter {
 }
 
 @Suppress("unused")
-private val detailPreviewMocks = registerPresenterMocks(
-  presenterMock<DetailPresenter> { FakeDetailPresenter() },
-)
+private val detailPreviewMocks = if (BuildConfig.DEBUG) {
+  MocksMap[PresenterMockKey(DetailPresenter::class, null)] = FakeDetailPresenter()
+} else {
+  Unit
+}
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float)
 

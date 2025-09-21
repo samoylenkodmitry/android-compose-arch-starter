@@ -1,9 +1,8 @@
 package com.archstarter.core.common.presenter
 
 import org.junit.After
-import org.junit.Assert.assertNotSame
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 
@@ -25,9 +24,7 @@ class PresenterMocksTest {
 
     @Test
     fun resolveDirectKey_returnsRegisteredInstance() {
-        registerPresenterMocks(
-            presenterMock<TestPresenter>(key = "primary") { TestPresenter("primary") },
-        )
+        MocksMap[PresenterMockKey(TestPresenter::class, "primary")] = TestPresenter("primary")
 
         val resolved = findPresenterMock(TestPresenter::class, "primary") as TestPresenter
         assertEquals("primary", resolved.value)
@@ -35,17 +32,14 @@ class PresenterMocksTest {
     }
 
     @Test
-    fun resolveFallback_createsDistinctInstancesPerKey() {
-        registerPresenterMocks(
-            presenterMock<TestPresenter> { TestPresenter("fallback") },
-        )
+    fun resolveFallback_returnsSharedInstanceWhenAvailable() {
+        val fallback = TestPresenter("fallback")
+        MocksMap[PresenterMockKey(TestPresenter::class, null)] = fallback
 
         val first = findPresenterMock(TestPresenter::class, "one") as TestPresenter
         val second = findPresenterMock(TestPresenter::class, "two") as TestPresenter
 
-        assertEquals("fallback", first.value)
-        assertEquals("fallback", second.value)
-        assertNotSame(first, second)
-        assertSame(first, findPresenterMock(TestPresenter::class, "one"))
+        assertSame(fallback, first)
+        assertSame(fallback, second)
     }
 }

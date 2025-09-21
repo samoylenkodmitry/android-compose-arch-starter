@@ -23,14 +23,15 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.tooling.preview.Preview
-import com.archstarter.core.common.presenter.presenterMock
-import com.archstarter.core.common.presenter.registerPresenterMocks
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
+import com.archstarter.feature.catalog.ui.BuildConfig
 import kotlin.math.abs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -250,9 +251,11 @@ private class FakeCatalogPresenter : CatalogPresenter {
 }
 
 @Suppress("unused")
-private val catalogPreviewMocks = registerPresenterMocks(
-  presenterMock<CatalogPresenter> { FakeCatalogPresenter() },
-)
+private val catalogPreviewMocks = if (BuildConfig.DEBUG) {
+  MocksMap[PresenterMockKey(CatalogPresenter::class, null)] = FakeCatalogPresenter()
+} else {
+  Unit
+}
 
 @Preview(showBackground = true)
 @Composable
