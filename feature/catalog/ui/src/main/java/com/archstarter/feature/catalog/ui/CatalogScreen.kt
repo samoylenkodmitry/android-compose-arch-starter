@@ -192,8 +192,6 @@ fun CatalogScreen(
           .fillMaxSize()
           .padding(horizontal = 16.dp, vertical = 16.dp)
       ) {
-        Text("Catalog", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
         Box(
           modifier = Modifier
             .weight(1f)
