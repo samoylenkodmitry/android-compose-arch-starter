@@ -269,7 +269,7 @@ fun CatalogScreen(
             onClick = p::onRefresh,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
-          ) { Text("Refresh (${state.items.size})", color = MaterialTheme.colorScheme.inverseOnSurface) }
+          ) { Text("Random (${state.items.size})", color = MaterialTheme.colorScheme.inverseOnSurface) }
         }
       }
     }
