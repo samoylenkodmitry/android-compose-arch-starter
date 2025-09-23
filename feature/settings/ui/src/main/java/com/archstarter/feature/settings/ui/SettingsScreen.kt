@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -43,6 +45,8 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
+import com.archstarter.core.designsystem.LiquidGlassRect
+import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.settings.api.LanguageChooserParams
 import com.archstarter.feature.settings.api.LanguageChooserPresenter
@@ -74,7 +78,7 @@ fun SettingsScreen(
         ) {
             Text("Settings", style = MaterialTheme.typography.titleLarge)
             OutlinedButton(onClick = onExit) {
-                Text("Exit")
+                Text("Exit", color = MaterialTheme.colorScheme.onSurface)
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -133,7 +137,7 @@ private fun LanguageChooserContent(
                 },
         ) {
             val label = if (state.selectedLanguage.isBlank()) "Select language" else state.selectedLanguage
-            Text(label)
+            Text(label, color = MaterialTheme.colorScheme.onSurface)
         }
         LanguageDropdownMenu(
             expanded = state.isExpanded,
@@ -175,75 +179,96 @@ private fun LanguageDropdownMenu(
         LanguageDropdownPositionProvider(anchor, verticalMarginPx)
     }
 
+    val popupGlassTint = Color(0xFF98A9CF)
+    var popupGlassRect by remember { mutableStateOf<LiquidGlassRect?>(null) }
+
     Popup(
         onDismissRequest = onDismiss,
         popupPositionProvider = positionProvider,
         properties = PopupProperties(focusable = true),
     ) {
-        Surface(
-            modifier = Modifier.width(resolvedWidth),
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp,
-            shape = MaterialTheme.shapes.extraSmall,
+        LiquidGlassRectOverlay(
+            rect = popupGlassRect,
         ) {
-            Column(Modifier.padding(vertical = 8.dp)) {
-                OutlinedTextField(
-                    value = state.query,
-                    onValueChange = onQueryChange,
-                    placeholder = { Text("Search languages") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                val errorMessage = state.errorMessage
-                val results = state.results
-                when {
-                    state.isLoading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator()
+            Surface(
+                modifier = Modifier
+                    .width(resolvedWidth)
+                    .onGloballyPositioned { coordinates ->
+                        popupGlassRect = with(density) {
+                            val position = coordinates.positionInRoot()
+                            LiquidGlassRect(
+                                left = position.x.toDp(),
+                                top = position.y.toDp(),
+                                width = coordinates.size.width.toDp(),
+                                height = coordinates.size.height.toDp(),
+                                tintColor = popupGlassTint,
+                            )
                         }
-                    }
+                    },
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                shape = MaterialTheme.shapes.extraSmall,
+                color = Color.Transparent,
+            ) {
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    OutlinedTextField(
+                        value = state.query,
+                        onValueChange = onQueryChange,
+                        placeholder = { Text("Search languages") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val errorMessage = state.errorMessage
+                    val results = state.results
+                    when {
+                        state.isLoading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
 
-                    errorMessage != null -> {
-                        DropdownMenuItem(
-                            text = {
-                                Column(Modifier.fillMaxWidth()) {
-                                    Text(errorMessage, style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text("Tap to retry", style = MaterialTheme.typography.labelSmall)
+                        errorMessage != null -> {
+                            DropdownMenuItem(
+                                text = {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Text(errorMessage, style = MaterialTheme.typography.bodyMedium)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text("Tap to retry", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                },
+                                onClick = onRetry,
+                            )
+                        }
+
+                        results.isEmpty() -> {
+                            DropdownMenuItem(
+                                text = { Text("No languages found") },
+                                enabled = false,
+                                onClick = {},
+                            )
+                        }
+
+                        else -> {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 240.dp),
+                            ) {
+                                items(results) { language ->
+                                    DropdownMenuItem(
+                                        text = { Text(language) },
+                                        onClick = { onSelect(language) },
+                                    )
                                 }
-                            },
-                            onClick = onRetry,
-                        )
-                    }
-
-                    results.isEmpty() -> {
-                        DropdownMenuItem(
-                            text = { Text("No languages found") },
-                            enabled = false,
-                            onClick = {},
-                        )
-                    }
-
-                    else -> {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 240.dp),
-                        ) {
-                            items(results) { language ->
-                                DropdownMenuItem(
-                                    text = { Text(language) },
-                                    onClick = { onSelect(language) },
-                                )
                             }
                         }
                     }
