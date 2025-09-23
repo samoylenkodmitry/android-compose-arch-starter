@@ -40,6 +40,9 @@ android {
 dependencies {
   implementation(project(":core:designsystem"))
   implementation(project(":core:common"))
+  implementation(project(":feature:onboarding:api"))
+  implementation(project(":feature:onboarding:ui"))
+  implementation(project(":feature:onboarding:impl"))
   implementation(project(":feature:catalog:api"))
   implementation(project(":feature:catalog:ui"))
   implementation(project(":feature:catalog:impl"))
