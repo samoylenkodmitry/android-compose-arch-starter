@@ -4,12 +4,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.awaitDispose
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.core.view.ViewCompat
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -48,6 +50,7 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
                 return@produceState
             }
         val rotationMatrix = FloatArray(9)
+        val remappedRotationMatrix = FloatArray(9)
         val orientationAngles = FloatArray(3)
         var filteredAngle = value.angle
         var filteredPitch = value.pitch
@@ -56,7 +59,24 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                SensorManager.getOrientation(rotationMatrix, orientationAngles)
+                val displayRotation = ViewCompat.getDisplay(view)?.rotation ?: Surface.ROTATION_0
+                val (worldAxisX, worldAxisY) = when (displayRotation) {
+                    Surface.ROTATION_0 -> SensorManager.AXIS_X to SensorManager.AXIS_Z
+                    Surface.ROTATION_90 -> SensorManager.AXIS_Z to SensorManager.AXIS_MINUS_X
+                    Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Z
+                    Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Z to SensorManager.AXIS_X
+                    else -> SensorManager.AXIS_X to SensorManager.AXIS_Z
+                }
+                val success = SensorManager.remapCoordinateSystem(
+                    rotationMatrix,
+                    worldAxisX,
+                    worldAxisY,
+                    remappedRotationMatrix,
+                )
+                if (!success) {
+                    return
+                }
+                SensorManager.getOrientation(remappedRotationMatrix, orientationAngles)
                 val rawPitch = orientationAngles[1].coerceIn(-MAX_PITCH, MAX_PITCH)
                 val rawRoll = orientationAngles[2].coerceIn(-MAX_ROLL, MAX_ROLL)
                 val normalizedPitch = rawPitch / MAX_PITCH
