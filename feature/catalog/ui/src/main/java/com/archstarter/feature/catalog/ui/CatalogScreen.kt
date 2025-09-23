@@ -16,11 +16,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,11 @@ fun CatalogScreen(
         }
       }
     }
+  }
+  val hapticFeedback = LocalHapticFeedback.current
+  LaunchedEffect(centeredItemInfo?.key) {
+    val centeredKey = centeredItemInfo?.key ?: return@LaunchedEffect
+    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
   }
   val centerGlassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
   val targetGlassRect by remember(centerGlassTint) {
