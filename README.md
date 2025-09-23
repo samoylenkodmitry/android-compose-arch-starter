@@ -74,6 +74,13 @@ The starter ships with a few sample features wired through the architecture:
 - **Detail** – shows the full article content along with translation details and pronunciation when available.
 - **Settings** – allows choosing native and learning languages that drive translation.
 
+## User Guide
+
+1. **Choose your languages.** Open the Settings panel from the catalog screen and pick the language you already know for the **Native (from)** field and the language you want to practice for the **Learning (to)** field. Use the dropdown in each field to search and select from the supported languages.
+2. **Fetch a random article.** Return to the catalog and press **Refresh** to pull a fresh random article that matches your language choices. Each refresh updates the list with another suggestion to explore.
+3. **Open the article.** Tap any article card in the catalog to view the full text along with its summary and additional metadata.
+4. **Translate vocabulary on the fly.** While reading, touch any word to highlight it and trigger an instant translation into your selected learning language. Keep your finger on the text and slide to nearby words to see their translations in place.
+
 ## Adding a feature
 1. Create three modules under `feature/<name>/` (`api`, `ui`, `impl`) and include them in `settings.gradle.kts`.
 2. In `feature/<name>/api`, declare the route and presenter contract:

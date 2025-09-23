@@ -10,7 +10,10 @@ data object Catalog
 data class CatalogItem(val id: Int, val title: String, val summary: String)
 
 // Presenter & state
-data class CatalogState(val items: List<Int> = emptyList())
+data class CatalogState(
+  val items: List<Int> = emptyList(),
+  val isRefreshing: Boolean = false,
+)
 
 interface CatalogItemBridge {
   fun onItemClick(id: Int)
