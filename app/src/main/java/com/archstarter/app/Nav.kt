@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,6 +31,9 @@ import com.archstarter.feature.catalog.api.Catalog
 import com.archstarter.feature.catalog.ui.CatalogScreen
 import com.archstarter.feature.detail.api.Detail
 import com.archstarter.feature.detail.ui.DetailScreen
+import com.archstarter.feature.onboarding.api.Onboarding
+import com.archstarter.feature.onboarding.api.OnboardingStatusProvider
+import com.archstarter.feature.onboarding.ui.OnboardingScreen
 import com.archstarter.feature.settings.api.Settings
 import com.archstarter.feature.settings.ui.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -45,6 +51,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var screenBuilder: ScreenComponent.Builder
 
+    @Inject
+    lateinit var onboardingStatus: OnboardingStatusProvider
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -61,6 +70,11 @@ class MainActivity : ComponentActivity() {
                     LocalPresenterResolver provides resolver,
                     LocalScreenBuilder provides screenBuilder
                 ) {
+                    val onboardingCompleted by onboardingStatus.hasCompleted.collectAsStateWithLifecycle(initialValue = null)
+                    val startDestinationState = remember { mutableStateOf<Any?>(null) }
+                    if (startDestinationState.value == null && onboardingCompleted != null) {
+                        startDestinationState.value = if (onboardingCompleted == true) Catalog else Onboarding
+                    }
                     Box(
                         modifier = Modifier
                             .imePadding()
@@ -69,7 +83,19 @@ class MainActivity : ComponentActivity() {
                             .safeContentPadding()
                             .fillMaxSize()
                     ) {
-                        AppNavHost(nav)
+                        val startDestination = startDestinationState.value
+                        if (startDestination != null) {
+                            AppNavHost(
+                                nav = nav,
+                                startDestination = startDestination,
+                                onOnboardingFinished = {
+                                    nav.navigate(Catalog) {
+                                        popUpTo(Onboarding) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -78,11 +104,20 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavHost(nav: NavHostController) {
-    NavHost(nav, startDestination = Catalog) {
-        composable<Catalog> { 
+fun AppNavHost(
+    nav: NavHostController,
+    startDestination: Any,
+    onOnboardingFinished: () -> Unit,
+) {
+    NavHost(nav, startDestination = startDestination) {
+        composable<Onboarding> {
             ScreenScope {
-                CatalogScreen() 
+                OnboardingScreen(onFinished = onOnboardingFinished)
+            }
+        }
+        composable<Catalog> {
+            ScreenScope {
+                CatalogScreen()
             }
         }
         composable<Detail> {
