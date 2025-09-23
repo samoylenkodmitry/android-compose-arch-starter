@@ -14,7 +14,7 @@ class MainActivityTest {
   val composeTestRule = createAndroidComposeRule<MainActivity>()
 
   @Test
-  fun catalogSettingsButtonIsDisplayed() {
+  fun settingsButtonIsDisplayed() {
     composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
   }
 }
