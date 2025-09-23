@@ -16,10 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
+import com.archstarter.core.designsystem.GwernDecoratedSpacer
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.catalog.api.CatalogPresenter
@@ -192,8 +193,6 @@ fun CatalogScreen(
           .fillMaxSize()
           .padding(horizontal = 16.dp, vertical = 16.dp)
       ) {
-        Text("Catalog", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
         Box(
           modifier = Modifier
             .weight(1f)
@@ -207,13 +206,19 @@ fun CatalogScreen(
             verticalArrangement = Arrangement.spacedBy(itemSpacing)
           ) {
             item(key = TOP_SPACER_KEY) {
-              Spacer(Modifier.height(edgeSpacerHeight))
+              GwernDecoratedSpacer(
+                height = edgeSpacerHeight,
+                isTop = true,
+              )
             }
             items(state.items, key = { it }) { id ->
               CatalogItemCard(id = id)
             }
             item(key = BOTTOM_SPACER_KEY) {
-              Spacer(Modifier.height(edgeSpacerHeight))
+              GwernDecoratedSpacer(
+                height = edgeSpacerHeight,
+                isTop = false,
+              )
             }
           }
         }
