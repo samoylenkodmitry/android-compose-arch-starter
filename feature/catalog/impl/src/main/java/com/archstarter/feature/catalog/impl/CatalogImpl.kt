@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 
@@ -51,13 +52,20 @@ class CatalogViewModel @AssistedInject constructor(
         val articles = repo.articles
         articles
             .onEach { list ->
-                _state.value = CatalogState(list.map { it.id })
+                _state.update { current ->
+                    current.copy(items = list.map { it.id })
+                }
             }
             .launchIn(viewModelScope)
         viewModelScope.launch {
             val hasArticles = articles.first().isNotEmpty()
             if (!hasArticles) {
-                repeat(10) { repo.refresh() }
+                _state.update { it.copy(isRefreshing = true) }
+                try {
+                    repeat(10) { repo.refresh() }
+                } finally {
+                    _state.update { it.copy(isRefreshing = false) }
+                }
             }
         }
     }
@@ -67,7 +75,15 @@ class CatalogViewModel @AssistedInject constructor(
     }
 
     override fun onRefresh() {
-        viewModelScope.launch { repo.refresh() }
+        if (_state.value.isRefreshing) return
+        viewModelScope.launch {
+            _state.update { it.copy(isRefreshing = true) }
+            try {
+                repo.refresh()
+            } finally {
+                _state.update { it.copy(isRefreshing = false) }
+            }
+        }
         screenBus.send("Catalog refreshed at ${System.currentTimeMillis()}")
     }
 

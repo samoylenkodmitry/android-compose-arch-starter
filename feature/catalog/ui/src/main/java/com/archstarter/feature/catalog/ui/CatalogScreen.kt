@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -283,9 +284,20 @@ fun CatalogScreen(
         Box(modifier = Modifier.padding(glassPadding)) {
           Button(
             onClick = p::onRefresh,
+            enabled = !state.isRefreshing,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
-          ) { Text("Refresh (${state.items.size})", color = MaterialTheme.colorScheme.inverseOnSurface) }
+          ) {
+            if (state.isRefreshing) {
+              CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.inverseOnSurface,
+              )
+              Spacer(Modifier.width(8.dp))
+            }
+            Text("Random (${state.items.size})", color = MaterialTheme.colorScheme.inverseOnSurface)
+          }
         }
       }
     }
@@ -294,9 +306,12 @@ fun CatalogScreen(
 
 // ---- Fake for preview (no Hilt in UI module) ----
 private class FakeCatalogPresenter : CatalogPresenter {
-  private val _s = MutableStateFlow(CatalogState(listOf(1)))
+  private val _s = MutableStateFlow(CatalogState(items = listOf(1)))
   override val state: StateFlow<CatalogState> = _s
-  override fun onRefresh() { _s.value = _s.value.copy(items = _s.value.items + (_s.value.items.size+1)) }
+  override fun onRefresh() {
+    val current = _s.value
+    _s.value = current.copy(items = current.items + (current.items.size + 1))
+  }
   override fun onItemClick(id: Int) {}
   override fun onSettingsClick() {}
   override fun initOnce(params: Unit) {}
