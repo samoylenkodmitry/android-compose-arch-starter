@@ -44,6 +44,8 @@ uniform float  u_scale;
 uniform float  u_ri;
 uniform float  u_profile;
 uniform float  u_highlight;
+uniform float  u_tiltAngle;
+uniform float  u_tiltPitch;
 uniform float4 u_tintColor;
 
 float sdRoundRect(float2 p, float2 halfWH, float r) {
@@ -82,11 +84,20 @@ half4 main(float2 coord) {
     float x = (u_bezel > 0.0) ? (d / u_bezel) : 0.0;
     float slope = dHeightDx(x, u_profile);
     float bend = slope * (1.0 - 1.0 / max(u_ri, 1.0001));
-    float2 disp = inwardN * (u_scale * bend);
+    float s = sin(u_tiltAngle);
+    float c = cos(u_tiltAngle);
+    float2 rotatedInward = float2(
+        inwardN.x * c - inwardN.y * s,
+        inwardN.x * s + inwardN.y * c
+    );
+    float2 disp = rotatedInward * (u_scale * bend);
     float2 sampleCoord = clamp(coord + disp, float2(0.5), u_size - float2(0.5));
     half4 refr = background.eval(sampleCoord);
     float rim = pow(1.0 - x, 3.0);
-    half specA = half(clamp(u_highlight * rim, 0.0, 1.0));
+    float2 lightDir = float2(-s, c);
+    float pitchBoost = clamp(1.0 + u_tiltPitch * 0.35, 0.6, 1.4);
+    float facing = clamp(0.5 + 0.5 * dot(-n, lightDir), 0.0, 1.0);
+    half specA = half(clamp(u_highlight * rim * facing * pitchBoost, 0.0, 1.0));
     half4 spec = half4(1.0, 1.0, 1.0, specA);
     half4 base = refr;
     half4 outc = base + spec * spec.a * 0.85;
@@ -105,6 +116,9 @@ data class LiquidGlassSpec(
     val refractiveIndex: Float = 1.5f,
     val profile: Float = 1f,
     val highlight: Float = 0.6f,
+    val tiltAngle: Float = 0f,
+    val tiltPitch: Float = 0f,
+    val enableDynamicTilt: Boolean = true,
 )
 
 @Stable
@@ -140,6 +154,18 @@ fun LiquidGlassRectOverlay(
     spec: LiquidGlassSpec = LiquidGlassSpec(),
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val dynamicTiltEnabled = spec.enableDynamicTilt && Build.VERSION.SDK_INT >= 33
+    val deviceTilt = rememberLiquidGlassTilt(dynamicTiltEnabled)
+    val resolvedSpec = remember(spec, deviceTilt, dynamicTiltEnabled) {
+        if (!dynamicTiltEnabled) {
+            spec
+        } else {
+            spec.copy(
+                tiltAngle = spec.tiltAngle + deviceTilt.angle,
+                tiltPitch = (spec.tiltPitch + deviceTilt.pitch).coerceIn(-1f, 1f),
+            )
+        }
+    }
     val density = LocalDensity.current
     var containerSize by remember { mutableStateOf(Size.Zero) }
     var overlayOffset by remember { mutableStateOf(Offset.Zero) }
@@ -148,9 +174,9 @@ fun LiquidGlassRectOverlay(
             .filterNot { it.isEmpty }
             .map { it.toRuntimeRect(density, overlayOffset) }
     }
-    val renderEffect = remember(rectsPx, containerSize, spec, density) {
+    val renderEffect = remember(rectsPx, containerSize, resolvedSpec, density) {
         if (Build.VERSION.SDK_INT >= 33) {
-            createRuntimeEffect(rectsPx, containerSize, spec, density)?.asComposeRenderEffect()
+            createRuntimeEffect(rectsPx, containerSize, resolvedSpec, density)?.asComposeRenderEffect()
         } else {
             null
         }
@@ -176,7 +202,7 @@ fun LiquidGlassRectOverlay(
             .drawWithContent {
                 drawContent()
                 if (!hasRuntimeEffect && rectsPx.isNotEmpty()) {
-                    drawFallbackGlass(rectsPx, spec)
+                    drawFallbackGlass(rectsPx, resolvedSpec)
                 }
             }
     ) {
@@ -257,6 +283,8 @@ private fun createRuntimeEffect(
         shader.setFloatUniform("u_ri", spec.refractiveIndex)
         shader.setFloatUniform("u_profile", spec.profile)
         shader.setFloatUniform("u_highlight", spec.highlight)
+        shader.setFloatUniform("u_tiltAngle", spec.tiltAngle)
+        shader.setFloatUniform("u_tiltPitch", spec.tiltPitch)
         shader.setFloatUniform(
             "u_tintColor",
             runtimeRect.tintColor.red,
