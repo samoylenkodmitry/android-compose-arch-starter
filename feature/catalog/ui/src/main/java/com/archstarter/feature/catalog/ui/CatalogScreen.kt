@@ -240,6 +240,15 @@ fun CatalogScreen(
               )
             }
           }
+
+          if (state.items.isEmpty() && state.isRefreshing) {
+            Box(
+              modifier = Modifier.fillMaxSize(),
+              contentAlignment = Alignment.Center,
+            ) {
+              CircularProgressIndicator()
+            }
+          }
         }
       }
     }
