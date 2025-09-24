@@ -6,10 +6,10 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.awaitDispose
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import kotlinx.coroutines.awaitCancellation
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -26,7 +26,7 @@ internal data class LiquidGlassTilt(
 @Composable
 internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
     val view = LocalView.current
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     return produceState(
         initialValue = LiquidGlassTilt.Zero,
         enabled,
@@ -48,7 +48,6 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
                 return@produceState
             }
         val rotationMatrix = FloatArray(9)
-        val remappedRotationMatrix = FloatArray(9)
         val orientationAngles = FloatArray(3)
         var filteredAngle = value.angle
         var filteredPitch = value.pitch
@@ -57,16 +56,7 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                val success = SensorManager.remapCoordinateSystem(
-                    rotationMatrix,
-                    SensorManager.AXIS_Z,
-                    SensorManager.AXIS_X,
-                    remappedRotationMatrix,
-                )
-                if (!success) {
-                    return
-                }
-                SensorManager.getOrientation(remappedRotationMatrix, orientationAngles)
+                SensorManager.getOrientation(rotationMatrix, orientationAngles)
                 val rawPitch = orientationAngles[1].coerceIn(-MAX_PITCH, MAX_PITCH)
                 val rawRoll = orientationAngles[2].coerceIn(-MAX_ROLL, MAX_ROLL)
                 val normalizedPitch = rawPitch / MAX_PITCH
@@ -93,9 +83,7 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
             SensorManager.SENSOR_DELAY_GAME,
         )
         if (registered) {
-            try {
-                awaitCancellation()
-            } finally {
+            awaitDispose {
                 sensorManager.unregisterListener(listener)
             }
         } else {
