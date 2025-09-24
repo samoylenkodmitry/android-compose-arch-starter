@@ -564,8 +564,11 @@ private fun TextLayoutResult.toLiquidRect(
   paddingY: Float
 ): LiquidRectPx? {
   if (range == null || range.length <= 0) return null
+  val layoutTextLength = layoutInput.text.length
+  if (layoutTextLength <= 0) return null
   val start = range.start.coerceAtLeast(0)
-  val end = range.end
+  if (start >= layoutTextLength) return null
+  val end = min(range.end, layoutTextLength)
   if (end <= start) return null
   val lastIndex = end - 1
   val startBox = getBoundingBox(start)
