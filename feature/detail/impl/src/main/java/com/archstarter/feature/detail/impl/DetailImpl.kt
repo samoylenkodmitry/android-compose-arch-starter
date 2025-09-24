@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.archstarter.core.common.app.App
 import com.archstarter.core.common.presenter.PresenterProvider
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.core.common.scope.ScreenComponent
@@ -32,6 +33,7 @@ import java.util.Locale
 
 class DetailViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
+    private val app: App,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
     @Assisted private val handle: SavedStateHandle
 ) : ViewModel(), DetailPresenter {
@@ -87,6 +89,11 @@ class DetailViewModel @AssistedInject constructor(
             cacheTranslation(normalizedWord, translation)
             updateHighlighted(normalizedWord, translation)
         }
+    }
+
+    override fun onSourceClick(url: String) {
+        if (url.isBlank()) return
+        app.navigation.openLink(url)
     }
 
     private fun updateHighlighted(word: String, translation: String) {

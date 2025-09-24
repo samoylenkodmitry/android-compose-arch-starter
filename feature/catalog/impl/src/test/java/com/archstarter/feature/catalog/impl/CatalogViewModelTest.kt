@@ -9,6 +9,7 @@ import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -28,14 +29,20 @@ class CatalogViewModelTest {
       override val articles: StateFlow<List<ArticleEntity>> = data
       override suspend fun refresh() {
         data.value = listOf(
-          ArticleEntity(1,"One","S","C","u","o","t",null,0L),
-          ArticleEntity(2,"Two","S","C","u","o","t",null,1L)
+          ArticleEntity(1,"One","S",null,"C","u","o","t",null,0L),
+          ArticleEntity(2,"Two","S",null,"C","u","o","t",null,1L)
         )
       }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+      override fun articleFlow(id: Int) = data.map { list -> list.firstOrNull { it.id == id } }
+      override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
       override suspend fun translate(word: String): String? = word
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val nav = object : NavigationActions {
+      override fun openDetail(id: Int) {}
+      override fun openSettings() {}
+      override fun openLink(url: String) {}
+    }
     val bridge = CatalogBridge()
     val screenBus = ScreenBus()
     val handle = SavedStateHandle()
@@ -57,13 +64,19 @@ class CatalogViewModelTest {
         refreshCount++
         val id = refreshCount
         data.value = listOf(
-          ArticleEntity(id, "Title$id", "S", "C", "u", "o", "t", null, id.toLong())
+          ArticleEntity(id, "Title$id", "S", null, "C", "u", "o", "t", null, id.toLong())
         ) + data.value
       }
       override suspend fun article(id: Int): ArticleEntity? = null
+      override fun articleFlow(id: Int) = data.map { list -> list.firstOrNull { it.id == id } }
+      override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
       override suspend fun translate(word: String): String? = word
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val nav = object : NavigationActions {
+      override fun openDetail(id: Int) {}
+      override fun openSettings() {}
+      override fun openLink(url: String) {}
+    }
     val bridge = CatalogBridge()
     val screenBus = ScreenBus()
     val handle = SavedStateHandle()
@@ -78,15 +91,21 @@ class CatalogViewModelTest {
   @Test
   fun initDoesNotFetchWhenArticlesAlreadyExist() = runTest {
     var refreshCount = 0
-    val existing = ArticleEntity(1, "One", "S", "C", "u", "o", "t", null, 0L)
+    val existing = ArticleEntity(1, "One", "S", null, "C", "u", "o", "t", null, 0L)
     val data = MutableStateFlow(listOf(existing))
     val repo = object : ArticleRepo {
       override val articles: StateFlow<List<ArticleEntity>> = data
       override suspend fun refresh() { refreshCount++ }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
+      override fun articleFlow(id: Int) = data.map { list -> list.firstOrNull { it.id == id } }
+      override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
       override suspend fun translate(word: String): String? = word
     }
-    val nav = object : NavigationActions { override fun openDetail(id: Int) {}; override fun openSettings() {} }
+    val nav = object : NavigationActions {
+      override fun openDetail(id: Int) {}
+      override fun openSettings() {}
+      override fun openLink(url: String) {}
+    }
     val bridge = CatalogBridge()
     val screenBus = ScreenBus()
     val handle = SavedStateHandle()

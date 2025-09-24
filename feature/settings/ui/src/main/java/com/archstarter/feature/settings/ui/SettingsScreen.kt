@@ -1,8 +1,10 @@
 package com.archstarter.feature.settings.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -60,17 +62,26 @@ import kotlinx.coroutines.flow.update
 import kotlin.math.roundToInt
 
 @Composable
-fun SettingsScreen() {
-    SettingsScreenContent()
+fun SettingsScreen(onExit: () -> Unit = {}) {
+    SettingsScreenContent(onExit = onExit)
 }
 
 @Composable
-private fun SettingsScreenContent() {
+private fun SettingsScreenContent(onExit: () -> Unit) {
     val presenter = rememberPresenter<SettingsPresenter, Unit>()
     val state by presenter.state.collectAsStateWithLifecycle()
 
     Column(Modifier.padding(16.dp)) {
-        Text("Settings", style = MaterialTheme.typography.titleLarge)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Settings", style = MaterialTheme.typography.titleLarge)
+            OutlinedButton(onClick = onExit) {
+                Text("Exit")
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Text("Native language")
         Spacer(Modifier.height(4.dp))

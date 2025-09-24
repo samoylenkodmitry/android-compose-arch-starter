@@ -1,13 +1,17 @@
 package com.archstarter.feature.detail.impl
 
 import androidx.lifecycle.SavedStateHandle
+import com.archstarter.core.common.app.App
+import com.archstarter.core.common.app.NavigationActions
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -23,7 +27,7 @@ class DetailViewModelTest {
   fun translateReusesCachedTranslation() = runTest {
     val article = sampleArticle()
     val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -47,7 +51,7 @@ class DetailViewModelTest {
   fun translateUsesCachedArticleTranslation() = runTest {
     val article = sampleArticle(original = "Original", translated = "Translated")
     val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -65,7 +69,7 @@ class DetailViewModelTest {
   fun translateCachesAcrossWordCaseDifferences() = runTest {
     val article = sampleArticle()
     val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -89,7 +93,7 @@ class DetailViewModelTest {
   fun prefetchPopulatesWordTranslations() = runTest {
     val article = sampleArticle(content = "Alpha beta alpha", original = "seed", translated = "sprout")
     val repo = FakeArticleRepo(article) { word, _ -> "${word.lowercase(Locale.ROOT)}-t" }
-    val vm = DetailViewModel(repo, ScreenBus(), SavedStateHandle())
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -100,10 +104,35 @@ class DetailViewModelTest {
     assertEquals("beta-t", translations["beta"])
   }
 
+  @Test
+  fun onSourceClickOpensLink() = runTest {
+    val repo = FakeArticleRepo(null) { _, _ -> null }
+    val nav = RecordingNavigationActions()
+    val vm = DetailViewModel(repo, App(nav), ScreenBus(), SavedStateHandle())
+
+    vm.onSourceClick("")
+    vm.onSourceClick("https://example.com")
+
+    assertEquals(listOf("https://example.com"), nav.openedLinks)
+  }
+
+  private class RecordingNavigationActions : NavigationActions {
+    val openedLinks = mutableListOf<String>()
+
+    override fun openDetail(id: Int) {}
+
+    override fun openSettings() {}
+
+    override fun openLink(url: String) {
+      openedLinks += url
+    }
+  }
+
   private fun sampleArticle(
     id: Int = 1,
     title: String = "Title",
     summary: String = "Summary",
+    summaryLanguage: String? = null,
     content: String = "Content",
     sourceUrl: String = "https://example.com",
     original: String = "Original",
@@ -114,6 +143,7 @@ class DetailViewModelTest {
     id = id,
     title = title,
     summary = summary,
+    summaryLanguage = summaryLanguage,
     content = content,
     sourceUrl = sourceUrl,
     originalWord = original,
@@ -132,6 +162,10 @@ class DetailViewModelTest {
     override suspend fun refresh() {}
 
     override suspend fun article(id: Int): ArticleEntity? = article
+
+    override fun articleFlow(id: Int): Flow<ArticleEntity?> = flowOf(article)
+
+    override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
 
     override suspend fun translate(word: String): String? {
       translateCalls += 1
