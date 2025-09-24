@@ -4,14 +4,12 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.view.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.awaitDispose
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.ViewCompat
+import kotlinx.coroutines.awaitCancellation
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -59,18 +57,10 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                val displayRotation = ViewCompat.getDisplay(view)?.rotation ?: Surface.ROTATION_0
-                val (worldAxisX, worldAxisY) = when (displayRotation) {
-                    Surface.ROTATION_0 -> SensorManager.AXIS_X to SensorManager.AXIS_Z
-                    Surface.ROTATION_90 -> SensorManager.AXIS_Z to SensorManager.AXIS_MINUS_X
-                    Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Z
-                    Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Z to SensorManager.AXIS_X
-                    else -> SensorManager.AXIS_X to SensorManager.AXIS_Z
-                }
                 val success = SensorManager.remapCoordinateSystem(
                     rotationMatrix,
-                    worldAxisX,
-                    worldAxisY,
+                    SensorManager.AXIS_Z,
+                    SensorManager.AXIS_X,
                     remappedRotationMatrix,
                 )
                 if (!success) {
@@ -103,7 +93,11 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
             SensorManager.SENSOR_DELAY_GAME,
         )
         if (registered) {
-            awaitDispose { sensorManager.unregisterListener(listener) }
+            try {
+                awaitCancellation()
+            } finally {
+                sensorManager.unregisterListener(listener)
+            }
         } else {
             sensorManager.unregisterListener(listener)
             value = LiquidGlassTilt.Zero
