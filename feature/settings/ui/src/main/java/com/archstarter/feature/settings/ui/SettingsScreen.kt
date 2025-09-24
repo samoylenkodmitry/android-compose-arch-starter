@@ -3,8 +3,8 @@ package com.archstarter.feature.settings.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -26,14 +26,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -69,8 +71,14 @@ fun SettingsScreen(
 ) {
     val p = presenter ?: rememberPresenter<SettingsPresenter, Unit>()
     val state by p.state.collectAsStateWithLifecycle()
+    var expandedRole by remember { mutableStateOf<LanguageChooserRole?>(null) }
+    val blurModifier = if (expandedRole != null) Modifier.blur(20.dp) else Modifier
 
-    Column(Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .padding(16.dp)
+            .then(blurModifier),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -88,6 +96,13 @@ fun SettingsScreen(
             role = LanguageChooserRole.Native,
             selected = state.nativeLanguage,
             presenterOverride = nativeLanguagePresenter,
+            onExpandedChange = { role, expanded ->
+                expandedRole = when {
+                    expanded -> role
+                    expandedRole == role -> null
+                    else -> expandedRole
+                }
+            },
         )
         Spacer(Modifier.height(16.dp))
         Text("Learning language")
@@ -96,6 +111,13 @@ fun SettingsScreen(
             role = LanguageChooserRole.Learning,
             selected = state.learningLanguage,
             presenterOverride = learningLanguagePresenter,
+            onExpandedChange = { role, expanded ->
+                expandedRole = when {
+                    expanded -> role
+                    expandedRole == role -> null
+                    else -> expandedRole
+                }
+            },
         )
     }
 }
@@ -105,26 +127,36 @@ private fun LanguageChooserField(
     role: LanguageChooserRole,
     selected: String,
     presenterOverride: LanguageChooserPresenter?,
+    onExpandedChange: (LanguageChooserRole, Boolean) -> Unit,
 ) {
     val presenter = presenterOverride ?: rememberPresenter<LanguageChooserPresenter, LanguageChooserParams>(
         key = "language_${role.name}",
         params = LanguageChooserParams(role = role, selectedLanguage = selected),
     )
-    LanguageChooserContent(presenter)
+    LanguageChooserContent(
+        presenter = presenter,
+        onExpandedChange = { expanded -> onExpandedChange(role, expanded) },
+    )
 }
 
 @Composable
 private fun LanguageChooserContent(
     presenter: LanguageChooserPresenter,
+    onExpandedChange: (Boolean) -> Unit,
 ) {
     val state by presenter.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var anchorBounds by remember { mutableStateOf<IntRect?>(null) }
+    val expandedCallback by rememberUpdatedState(onExpandedChange)
 
     LaunchedEffect(state.isExpanded, state.query) {
         if (state.isExpanded) {
             listState.scrollToItem(0)
         }
+    }
+
+    LaunchedEffect(state.isExpanded) {
+        expandedCallback(state.isExpanded)
     }
 
     Box {
