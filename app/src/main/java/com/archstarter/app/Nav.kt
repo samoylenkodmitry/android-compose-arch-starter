@@ -1,13 +1,13 @@
 package com.archstarter.app
 
+import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.core.view.WindowCompat
 import com.archstarter.core.common.app.App
 import com.archstarter.core.common.presenter.LocalPresenterResolver
 import com.archstarter.core.common.scope.LocalScreenBuilder
@@ -56,6 +57,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
         setContent {
             AppTheme {
                 val nav = rememberNavController()
@@ -75,26 +79,28 @@ class MainActivity : ComponentActivity() {
                     if (startDestinationState.value == null && onboardingCompleted != null) {
                         startDestinationState.value = if (onboardingCompleted == true) Catalog else Onboarding
                     }
-                    Box(
-                        modifier = Modifier
-                            .imePadding()
-                            .navigationBarsPadding()
-                            .systemBarsPadding()
-                            .safeContentPadding()
-                            .fillMaxSize()
-                    ) {
-                        val startDestination = startDestinationState.value
-                        if (startDestination != null) {
-                            AppNavHost(
-                                nav = nav,
-                                startDestination = startDestination,
-                                onOnboardingFinished = {
-                                    nav.navigate(Catalog) {
-                                        popUpTo(Onboarding) { inclusive = true }
-                                        launchSingleTop = true
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        AppTopBar(title = "Infislate")
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxSize()
+                                .imePadding()
+                                .navigationBarsPadding()
+                        ) {
+                            val startDestination = startDestinationState.value
+                            if (startDestination != null) {
+                                AppNavHost(
+                                    nav = nav,
+                                    startDestination = startDestination,
+                                    onOnboardingFinished = {
+                                        nav.navigate(Catalog) {
+                                            popUpTo(Onboarding) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
