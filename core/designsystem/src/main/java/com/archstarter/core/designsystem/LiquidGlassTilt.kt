@@ -5,12 +5,14 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import kotlin.math.PI
-import kotlin.math.abs
 
 @Stable
 internal data class LiquidGlassTilt(
@@ -26,51 +28,32 @@ internal data class LiquidGlassTilt(
 internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
     val view = LocalView.current
     val context = LocalContext.current
-    return produceState(
-        initialValue = LiquidGlassTilt.Zero,
-        enabled,
-        context,
-        view,
-    ) {
+    val tiltProcessor = remember { LiquidGlassTiltProcessor() }
+    var tilt by remember { mutableStateOf(LiquidGlassTilt.Zero) }
+    DisposableEffect(enabled, context, view) {
+        tiltProcessor.reset(LiquidGlassTilt.Zero)
+        tilt = LiquidGlassTilt.Zero
         if (!enabled || view.isInEditMode) {
-            value = LiquidGlassTilt.Zero
-            return@produceState
+            return@DisposableEffect onDispose { }
         }
         val sensorManager = context.getSystemService(SensorManager::class.java)
-            ?: run {
-                value = LiquidGlassTilt.Zero
-                return@produceState
-            }
+        if (sensorManager == null) {
+            return@DisposableEffect onDispose { }
+        }
         val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-            ?: run {
-                value = LiquidGlassTilt.Zero
-                return@produceState
-            }
+        if (rotationSensor == null) {
+            return@DisposableEffect onDispose { }
+        }
         val rotationMatrix = FloatArray(9)
         val orientationAngles = FloatArray(3)
-        var filteredAngle = value.angle
-        var filteredPitch = value.pitch
-        var lastSentAngle = value.angle
-        var lastSentPitch = value.pitch
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
                 SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                val rawPitch = orientationAngles[1].coerceIn(-MAX_PITCH, MAX_PITCH)
-                val rawRoll = orientationAngles[2].coerceIn(-MAX_ROLL, MAX_ROLL)
-                val normalizedPitch = rawPitch / MAX_PITCH
-                val normalizedRoll = rawRoll / MAX_ROLL
-                val targetAngle = normalizedRoll * MAX_SHADER_ROTATION
-                val targetPitch = normalizedPitch
-                filteredAngle += (targetAngle - filteredAngle) * FILTER_ALPHA
-                filteredPitch += (targetPitch - filteredPitch) * FILTER_ALPHA
-                if (
-                    abs(filteredAngle - lastSentAngle) > ANGLE_EPSILON ||
-                    abs(filteredPitch - lastSentPitch) > PITCH_EPSILON
-                ) {
-                    lastSentAngle = filteredAngle
-                    lastSentPitch = filteredPitch
-                    value = LiquidGlassTilt(filteredAngle, filteredPitch)
+                val rawPitch = orientationAngles[1]
+                val rawRoll = orientationAngles[2]
+                tiltProcessor.update(rawRoll, rawPitch)?.let { newTilt ->
+                    tilt = newTilt
                 }
             }
 
@@ -81,21 +64,16 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
             rotationSensor,
             SensorManager.SENSOR_DELAY_GAME,
         )
-        if (registered) {
-            awaitDispose {
-                sensorManager.unregisterListener(listener)
-            }
-        } else {
+        if (!registered) {
             sensorManager.unregisterListener(listener)
-            value = LiquidGlassTilt.Zero
+            tiltProcessor.reset(LiquidGlassTilt.Zero)
+            tilt = LiquidGlassTilt.Zero
+            return@DisposableEffect onDispose { }
         }
-    }.value
+        onDispose {
+            tiltProcessor.reset(LiquidGlassTilt.Zero)
+            sensorManager.unregisterListener(listener)
+        }
+    }
+    return tilt
 }
-
-private const val FILTER_ALPHA = 0.12f
-private const val ANGLE_EPSILON = 0.0005f
-private const val PITCH_EPSILON = 0.0005f
-private const val MAX_SHADER_ROTATION = 0.45f
-private val HALF_PI = (PI / 2.0).toFloat()
-private val MAX_ROLL = HALF_PI * 0.9f
-private val MAX_PITCH = HALF_PI * 0.75f
