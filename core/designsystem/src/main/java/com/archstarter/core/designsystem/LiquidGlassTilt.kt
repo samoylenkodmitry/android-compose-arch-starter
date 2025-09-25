@@ -50,8 +50,8 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
                 SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                val rawPitch = orientationAngles[1]
-                val rawRoll = orientationAngles[2]
+                val rawPitch = orientationAngles[0]
+                val rawRoll = orientationAngles[1]
                 tiltProcessor.update(rawRoll, rawPitch)?.let { newTilt ->
                     tilt = newTilt
                 }
