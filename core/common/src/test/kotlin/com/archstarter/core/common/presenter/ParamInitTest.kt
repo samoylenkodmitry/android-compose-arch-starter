@@ -6,9 +6,10 @@ import org.junit.Test
 class ParamInitTest {
     private class TestInit : ParamInit<String> {
         var value: String? = null
-        override fun initOnce(params: String) {
+        override fun initOnce(params: String?) {
+            val actual = params ?: return
             if (value == null) {
-                value = params
+                value = actual
             }
         }
     }
@@ -18,6 +19,9 @@ class ParamInitTest {
         val init = TestInit()
         init.initOnce("first")
         init.initOnce("second")
+        assertEquals("first", init.value)
+
+        init.initOnce(null)
         assertEquals("first", init.value)
     }
 }

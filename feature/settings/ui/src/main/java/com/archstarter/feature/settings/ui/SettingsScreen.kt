@@ -44,6 +44,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.LiquidGlassRect
 import com.archstarter.core.designsystem.LiquidGlassRectOverlay
@@ -62,13 +64,10 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
-    presenter: SettingsPresenter? = null,
-    nativeLanguagePresenter: LanguageChooserPresenter? = null,
-    learningLanguagePresenter: LanguageChooserPresenter? = null,
     onExit: () -> Unit = {},
 ) {
-    val p = presenter ?: rememberPresenter<SettingsPresenter, Unit>()
-    val state by p.state.collectAsStateWithLifecycle()
+    val presenter = rememberPresenter<SettingsPresenter, Unit>()
+    val state by presenter.state.collectAsStateWithLifecycle()
 
     Column(Modifier.padding(16.dp)) {
         Row(
@@ -87,7 +86,6 @@ fun SettingsScreen(
         LanguageChooserField(
             role = LanguageChooserRole.Native,
             selected = state.nativeLanguage,
-            presenterOverride = nativeLanguagePresenter,
         )
         Spacer(Modifier.height(16.dp))
         Text("Learning language")
@@ -95,19 +93,22 @@ fun SettingsScreen(
         LanguageChooserField(
             role = LanguageChooserRole.Learning,
             selected = state.learningLanguage,
-            presenterOverride = learningLanguagePresenter,
         )
     }
 }
+
+internal fun languagePresenterKey(role: LanguageChooserRole): String = "language_${role.name}"
+
+@Suppress("unused")
+private val ensureSettingsMocks = SettingsPresenterMocks
 
 @Composable
 private fun LanguageChooserField(
     role: LanguageChooserRole,
     selected: String,
-    presenterOverride: LanguageChooserPresenter?,
 ) {
-    val presenter = presenterOverride ?: rememberPresenter<LanguageChooserPresenter, LanguageChooserParams>(
-        key = "language_${role.name}",
+    val presenter = rememberPresenter<LanguageChooserPresenter, LanguageChooserParams>(
+        key = languagePresenterKey(role),
         params = LanguageChooserParams(role = role, selectedLanguage = selected),
     )
     LanguageChooserContent(presenter)
@@ -325,17 +326,43 @@ private fun Rect.toIntRect(): IntRect {
 
 private fun IntRect.width(): Int = right - left
 
-// ---- Fake for preview ----
+private object SettingsPresenterMocks {
+    private val settingsPresenter = FakeSettingsPresenter()
+    private val nativeLanguagePresenter = FakeLanguageChooserPresenter("English")
+    private val learningLanguagePresenter = FakeLanguageChooserPresenter("Spanish")
+
+    init {
+        if (BuildConfig.DEBUG) {
+            MocksMap[PresenterMockKey(SettingsPresenter::class, null)] = settingsPresenter
+            MocksMap[
+                PresenterMockKey(
+                    LanguageChooserPresenter::class,
+                    languagePresenterKey(LanguageChooserRole.Native),
+                ),
+            ] = nativeLanguagePresenter
+            MocksMap[
+                PresenterMockKey(
+                    LanguageChooserPresenter::class,
+                    languagePresenterKey(LanguageChooserRole.Learning),
+                ),
+            ] = learningLanguagePresenter
+        }
+    }
+}
+
 private class FakeSettingsPresenter : SettingsPresenter {
     private val _state = MutableStateFlow(SettingsState())
     override val state: StateFlow<SettingsState> = _state
+
     override fun onNativeSelected(language: String) {
         _state.update { current -> current.copy(nativeLanguage = language) }
     }
+
     override fun onLearningSelected(language: String) {
         _state.update { current -> current.copy(learningLanguage = language) }
     }
-    override fun initOnce(params: Unit) {}
+
+    override fun initOnce(params: Unit?) {}
 }
 
 private class FakeLanguageChooserPresenter(
@@ -350,8 +377,9 @@ private class FakeLanguageChooserPresenter(
     )
     override val state: StateFlow<LanguageChooserState> = _state
 
-    override fun initOnce(params: LanguageChooserParams) {
-        _state.update { it.copy(selectedLanguage = params.selectedLanguage) }
+    override fun initOnce(params: LanguageChooserParams?) {
+        val actual = params ?: return
+        _state.update { it.copy(selectedLanguage = actual.selectedLanguage) }
     }
 
     override fun onToggleExpanded() {
@@ -366,8 +394,10 @@ private class FakeLanguageChooserPresenter(
         _state.update {
             it.copy(
                 query = query,
-                results = if (query.isBlank()) languages else languages.filter {
-                    it.contains(query, ignoreCase = true)
+                results = if (query.isBlank()) {
+                    languages
+                } else {
+                    languages.filter { option -> option.contains(query, ignoreCase = true) }
                 },
             )
         }
@@ -383,13 +413,5 @@ private class FakeLanguageChooserPresenter(
 @androidx.compose.ui.tooling.preview.Preview(showBackground = true)
 @Composable
 private fun PreviewSettings() {
-    AppTheme {
-        val native = remember { FakeLanguageChooserPresenter("English") }
-        val learning = remember { FakeLanguageChooserPresenter("Spanish") }
-        SettingsScreen(
-            presenter = FakeSettingsPresenter(),
-            nativeLanguagePresenter = native,
-            learningLanguagePresenter = learning,
-        )
-    }
+    AppTheme { SettingsScreen(onExit = {}) }
 }

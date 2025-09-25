@@ -28,6 +28,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.GwernDecoratedSpacer
@@ -42,12 +44,13 @@ import kotlin.math.abs
 private const val TOP_SPACER_KEY = "catalog_top_spacer"
 private const val BOTTOM_SPACER_KEY = "catalog_bottom_spacer"
 
+@Suppress("unused")
+private val ensureCatalogScreenMocks = CatalogScreenPresenterMocks
+
 @Composable
-fun CatalogScreen(
-  presenter: CatalogPresenter? = null,
-) {
-  val p = presenter ?: rememberPresenter<CatalogPresenter, Unit>()
-  val state by p.state.collectAsStateWithLifecycle()
+fun CatalogScreen() {
+  val presenter = rememberPresenter<CatalogPresenter, Unit>()
+  val state by presenter.state.collectAsStateWithLifecycle()
   val listState = rememberLazyListState()
   var previousItems by remember { mutableStateOf<List<Int>>(emptyList()) }
   LaunchedEffect(state.items) {
@@ -276,7 +279,7 @@ fun CatalogScreen(
       ) {
         Box(modifier = Modifier.padding(glassPadding)) {
           Button(
-            onClick = p::onSettingsClick,
+            onClick = presenter::onSettingsClick,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
           ) { Text("Settings", color = MaterialTheme.colorScheme.inverseOnSurface) }
@@ -290,7 +293,7 @@ fun CatalogScreen(
       ) {
         Box(modifier = Modifier.padding(glassPadding)) {
           Button(
-            onClick = p::onRefresh,
+            onClick = presenter::onRefresh,
             enabled = !state.isRefreshing,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
@@ -311,21 +314,37 @@ fun CatalogScreen(
   }
 }
 
-// ---- Fake for preview (no Hilt in UI module) ----
-private class FakeCatalogPresenter : CatalogPresenter {
-  private val _s = MutableStateFlow(CatalogState(items = listOf(1)))
-  override val state: StateFlow<CatalogState> = _s
-  override fun onRefresh() {
-    val current = _s.value
-    _s.value = current.copy(items = current.items + (current.items.size + 1))
-  }
-  override fun onItemClick(id: Int) {}
-  override fun onSettingsClick() {}
-  override fun initOnce(params: Unit) {}
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun PreviewCatalog() {
-  AppTheme { CatalogScreen(presenter = FakeCatalogPresenter()) }
+  AppTheme { CatalogScreen() }
+}
+
+private object CatalogScreenPresenterMocks {
+  private val presenter = FakeCatalogPresenter()
+
+  init {
+    if (BuildConfig.DEBUG) {
+      MocksMap[PresenterMockKey(CatalogPresenter::class, null)] = presenter
+    }
+  }
+}
+
+private class FakeCatalogPresenter : CatalogPresenter {
+  private val _state = MutableStateFlow(CatalogState(items = listOf(1, 2, 3)))
+  override val state: StateFlow<CatalogState> = _state
+
+  override fun onRefresh() {
+    val current = _state.value
+    if (current.items.isNotEmpty()) {
+      val rotated = current.items.drop(1) + current.items.first()
+      _state.value = current.copy(items = rotated)
+    }
+  }
+
+  override fun onItemClick(id: Int) {}
+
+  override fun onSettingsClick() {}
+
+  override fun initOnce(params: Unit?) {}
 }

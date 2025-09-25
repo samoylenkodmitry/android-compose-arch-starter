@@ -31,9 +31,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.core.designsystem.LiquidGlassRect
@@ -41,10 +41,10 @@ import com.archstarter.core.designsystem.LiquidGlassRectOverlay
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.max
 import kotlin.math.min
 import java.util.LinkedHashMap
@@ -52,10 +52,13 @@ import java.util.Locale
 
 internal const val DETAIL_DISPLAY_PAD_CHAR: Char = '\u00A0'
 
+@Suppress("unused")
+private val ensureDetailMocks = DetailPresenterMocks
+
 @Composable
-fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
-  val p = presenter ?: rememberPresenter<DetailPresenter, Int>(params = id)
-  val state by p.state.collectAsStateWithLifecycle()
+fun DetailScreen(id: Int) {
+  val presenter = rememberPresenter<DetailPresenter, Int>(params = id)
+  val state by presenter.state.collectAsStateWithLifecycle()
   val density = LocalDensity.current
   val hapticFeedback = LocalHapticFeedback.current
   val viewConfiguration = LocalViewConfiguration.current
@@ -111,7 +114,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
         val normalized = randomWord.normalized
         if (currentNormalizedWord != normalized) {
           currentNormalizedWord = normalized
-          p.translate(normalized)
+          presenter.translate(normalized)
         }
       }
     }
@@ -159,7 +162,7 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
     val displayBoundsState = rememberUpdatedState(displayBounds)
     val wordsState = rememberUpdatedState(words)
     val translateState = rememberUpdatedState<(String) -> Unit> { normalized ->
-      p.translate(normalized)
+      presenter.translate(normalized)
     }
     val hapticState = rememberUpdatedState(hapticFeedback)
     val viewConfigurationState = rememberUpdatedState(viewConfiguration)
@@ -288,18 +291,10 @@ fun DetailScreen(id: Int, presenter: DetailPresenter? = null) {
       text = "Source: $sourceUrl",
       style = MaterialTheme.typography.bodyMedium,
       modifier = Modifier.clickable(enabled = sourceUrl.isNotBlank()) {
-        p.onSourceClick(sourceUrl)
+        presenter.onSourceClick(sourceUrl)
       }
     )
   }
-}
-
-private class FakeDetailPresenter : DetailPresenter {
-  private val _s = MutableStateFlow(DetailState(title = "Preview", content = "Content"))
-  override val state: StateFlow<DetailState> = _s
-  override fun initOnce(params: Int) {}
-  override fun translate(word: String) {}
-  override fun onSourceClick(url: String) {}
 }
 
 private data class LiquidRectPx(val left: Float, val top: Float, val width: Float, val height: Float) {
@@ -587,5 +582,28 @@ private fun TextLayoutResult.toLiquidRect(
 @Preview(showBackground = true)
 @Composable
 private fun PreviewDetail() {
-  AppTheme { DetailScreen(id = 1, presenter = FakeDetailPresenter()) }
+  AppTheme { DetailScreen(id = 1) }
+}
+
+private object DetailPresenterMocks {
+  private val presenter = FakeDetailPresenter()
+
+  init {
+    if (BuildConfig.DEBUG) {
+      MocksMap[PresenterMockKey(DetailPresenter::class, null)] = presenter
+    }
+  }
+}
+
+private class FakeDetailPresenter : DetailPresenter {
+  private val _state = MutableStateFlow(
+    DetailState(title = "Preview", content = "Swipe to translate highlighted words."),
+  )
+  override val state: StateFlow<DetailState> = _state
+
+  override fun initOnce(params: Int?) {}
+
+  override fun translate(word: String) {}
+
+  override fun onSourceClick(url: String) {}
 }
