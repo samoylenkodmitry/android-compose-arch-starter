@@ -52,7 +52,7 @@ class OnboardingViewModel @AssistedInject constructor(
         }
     }
 
-    override fun initOnce(params: Unit) = Unit
+    override fun initOnce(params: Unit?) = Unit
 
     @AssistedFactory
     interface Factory : AssistedVmFactory<OnboardingViewModel>

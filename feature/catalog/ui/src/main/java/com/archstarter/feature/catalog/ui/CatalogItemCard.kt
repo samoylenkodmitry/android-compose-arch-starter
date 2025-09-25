@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.CatalogItem
@@ -19,17 +21,19 @@ import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+@Suppress("unused")
+private val ensureCatalogItemMocks = CatalogItemPresenterMocks
+
 @Composable
 fun CatalogItemCard(
   id: Int,
   modifier: Modifier = Modifier,
-  presenter: CatalogItemPresenter? = null,
 ) {
-  val p = presenter ?: rememberPresenter<CatalogItemPresenter, Int>(key = "item$id", params = id)
-  val state by p.state.collectAsStateWithLifecycle()
+  val presenter = rememberPresenter<CatalogItemPresenter, Int>(key = "item$id", params = id)
+  val state by presenter.state.collectAsStateWithLifecycle()
   CatalogItemCardContent(
     state = state,
-    onClick = p::onClick,
+    onClick = presenter::onClick,
     modifier = modifier
   )
 }
@@ -51,16 +55,44 @@ internal fun CatalogItemCardContent(
   }
 }
 
-// ---- Fake for preview ----
-private class FakeCatalogItemPresenter : CatalogItemPresenter {
-  private val _s = MutableStateFlow(CatalogItem(1, "Alpha", "Summary"))
-  override val state: StateFlow<CatalogItem> = _s
-  override fun onClick() {}
-  override fun initOnce(params: Int) {}
-}
-
 @Preview
 @Composable
 private fun PreviewCatalogItemCard() {
-  AppTheme { CatalogItemCard(id = 1, presenter = FakeCatalogItemPresenter()) }
+  AppTheme { CatalogItemCard(id = 1) }
+}
+
+private object CatalogItemPresenterMocks {
+  private val presenters = mapOf(
+    "item1" to FakeCatalogItemPresenter(1),
+    "item2" to FakeCatalogItemPresenter(2),
+    "item3" to FakeCatalogItemPresenter(3),
+  )
+
+  init {
+    if (BuildConfig.DEBUG) {
+      presenters.forEach { (key, presenter) ->
+        MocksMap[PresenterMockKey(CatalogItemPresenter::class, key)] = presenter
+      }
+    }
+  }
+}
+
+private class FakeCatalogItemPresenter(
+  private val defaultId: Int,
+) : CatalogItemPresenter {
+  private val _state = MutableStateFlow(createState(defaultId))
+  override val state: StateFlow<CatalogItem> = _state
+
+  override fun initOnce(params: Int?) {
+    val id = params ?: defaultId
+    _state.value = createState(id)
+  }
+
+  override fun onClick() {}
+
+  private fun createState(id: Int) = CatalogItem(
+    id = id,
+    title = "Item #$id",
+    summary = "Summary for item #$id",
+  )
 }

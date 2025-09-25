@@ -22,7 +22,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,22 +30,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.archstarter.core.common.presenter.MocksMap
+import com.archstarter.core.common.presenter.PresenterMockKey
 import com.archstarter.core.common.presenter.rememberPresenter
 import com.archstarter.core.designsystem.AppTheme
+import com.archstarter.feature.onboarding.api.OnboardingPage
 import com.archstarter.feature.onboarding.api.OnboardingPresenter
 import com.archstarter.feature.onboarding.api.OnboardingState
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
+
+@Suppress("unused")
+private val ensureOnboardingMocks = OnboardingPresenterMocks
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(
-    presenter: OnboardingPresenter? = null,
     onFinished: () -> Unit,
 ) {
-    val p = presenter ?: rememberPresenter<OnboardingPresenter, Unit>()
-    val state by p.state.collectAsStateWithLifecycle()
+    val presenter = rememberPresenter<OnboardingPresenter, Unit>()
+    val state by presenter.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.completed) {
         if (state.completed == true) {
@@ -127,13 +132,13 @@ fun OnboardingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = { p.onContinue() }) {
+            TextButton(onClick = presenter::onContinue) {
                 Text("Skip")
             }
             Button(
                 onClick = {
                     if (isLastPage) {
-                        p.onContinue()
+                        presenter.onContinue()
                     } else {
                         scope.launch {
                             val next = (pagerState.currentPage + 1).coerceAtMost(lastIndex)
@@ -151,15 +156,31 @@ fun OnboardingScreen(
 @Preview(showBackground = true)
 @Composable
 private fun OnboardingScreenPreview() {
-    val state = remember { MutableStateFlow(OnboardingState()) }
-    val presenter = remember {
-        object : OnboardingPresenter {
-            override val state: StateFlow<OnboardingState> = state
-            override fun onContinue() {}
-            override fun initOnce(params: Unit) {}
+    AppTheme { OnboardingScreen(onFinished = {}) }
+}
+
+private object OnboardingPresenterMocks {
+    private val presenter = FakeOnboardingPresenter()
+
+    init {
+        if (BuildConfig.DEBUG) {
+            MocksMap[PresenterMockKey(OnboardingPresenter::class, null)] = presenter
         }
     }
-    AppTheme {
-        OnboardingScreen(presenter = presenter, onFinished = {})
+}
+
+private class FakeOnboardingPresenter : OnboardingPresenter {
+    private val pages = listOf(
+        OnboardingPage(title = "Welcome", message = "Explore the catalog with ease."),
+        OnboardingPage(title = "Learn", message = "Tap any item to read detailed information."),
+        OnboardingPage(title = "Enjoy", message = "Pick favorites and personalize your feed."),
+    )
+    private val _state = MutableStateFlow(OnboardingState(completed = false, pages = pages))
+    override val state: StateFlow<OnboardingState> = _state
+
+    override fun onContinue() {
+        _state.update { current -> current.copy(completed = true) }
     }
+
+    override fun initOnce(params: Unit?) {}
 }
