@@ -121,9 +121,11 @@ private fun LanguageChooserContent(
     val listState = rememberLazyListState()
     var anchorBounds by remember { mutableStateOf<IntRect?>(null) }
 
-    LaunchedEffect(state.isExpanded, state.query) {
+    LaunchedEffect(state.isExpanded, state.results, state.selectedLanguage) {
         if (state.isExpanded) {
-            listState.scrollToItem(0)
+            val selectedIndex = state.results.indexOf(state.selectedLanguage)
+            val targetIndex = if (selectedIndex >= 0) selectedIndex else 0
+            listState.scrollToItem(targetIndex)
         }
     }
 
