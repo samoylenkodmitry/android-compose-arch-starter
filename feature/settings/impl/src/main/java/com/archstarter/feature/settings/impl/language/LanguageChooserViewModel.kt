@@ -39,9 +39,10 @@ class LanguageChooserViewModel @AssistedInject constructor(
     private var allLanguages: List<String> = emptyList()
     private var filterJob: Job? = null
 
-    override fun initOnce(params: LanguageChooserParams) {
-        this.params = params
-        _state.update { it.copy(selectedLanguage = params.selectedLanguage) }
+    override fun initOnce(params: LanguageChooserParams?) {
+        val actual = params ?: return
+        this.params = actual
+        _state.update { it.copy(selectedLanguage = actual.selectedLanguage) }
         if (allLanguages.isEmpty()) {
             loadLanguages(initial = true)
         }

@@ -53,11 +53,12 @@ class DetailViewModel @AssistedInject constructor(
     private val translationCache = mutableMapOf<String, String>()
     private var prefetchJob: Job? = null
 
-    override fun initOnce(params: Int) {
+    override fun initOnce(params: Int?) {
         if (initialized) return
+        val articleId = params ?: return
         initialized = true
         viewModelScope.launch {
-            repo.article(params)?.let {
+            repo.article(articleId)?.let {
                 _state.value = DetailState(
                     title = it.title,
                     content = it.content,
@@ -68,7 +69,7 @@ class DetailViewModel @AssistedInject constructor(
                 )
                 cacheTranslation(it.originalWord, it.translatedWord)
                 prefetchContentTranslations(it.content)
-                screenBus.send("Detail loaded for article $params: ${it.title}")
+                screenBus.send("Detail loaded for article $articleId: ${it.title}")
             }
         }
     }
