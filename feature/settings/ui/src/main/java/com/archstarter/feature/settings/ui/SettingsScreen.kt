@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -74,51 +75,57 @@ fun SettingsScreen(
     var expandedRole by remember { mutableStateOf<LanguageChooserRole?>(null) }
     val blurModifier = if (expandedRole != null) Modifier.blur(20.dp) else Modifier
 
-    Column(
+    Box(
         modifier = Modifier
-            .padding(16.dp)
+            .fillMaxSize()
             .then(blurModifier),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
         ) {
-            Text("Settings", style = MaterialTheme.typography.titleLarge)
-            OutlinedButton(onClick = onExit) {
-                Text("Exit", color = MaterialTheme.colorScheme.onSurface)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Settings", style = MaterialTheme.typography.titleLarge)
+                OutlinedButton(onClick = onExit) {
+                    Text("Exit", color = MaterialTheme.colorScheme.onSurface)
+                }
             }
+            Spacer(Modifier.height(8.dp))
+            Text("Native language")
+            Spacer(Modifier.height(4.dp))
+            LanguageChooserField(
+                role = LanguageChooserRole.Native,
+                selected = state.nativeLanguage,
+                presenterOverride = nativeLanguagePresenter,
+                onExpandedChange = { role, expanded ->
+                    expandedRole = when {
+                        expanded -> role
+                        expandedRole == role -> null
+                        else -> expandedRole
+                    }
+                },
+            )
+            Spacer(Modifier.height(16.dp))
+            Text("Learning language")
+            Spacer(Modifier.height(4.dp))
+            LanguageChooserField(
+                role = LanguageChooserRole.Learning,
+                selected = state.learningLanguage,
+                presenterOverride = learningLanguagePresenter,
+                onExpandedChange = { role, expanded ->
+                    expandedRole = when {
+                        expanded -> role
+                        expandedRole == role -> null
+                        else -> expandedRole
+                    }
+                },
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        Text("Native language")
-        Spacer(Modifier.height(4.dp))
-        LanguageChooserField(
-            role = LanguageChooserRole.Native,
-            selected = state.nativeLanguage,
-            presenterOverride = nativeLanguagePresenter,
-            onExpandedChange = { role, expanded ->
-                expandedRole = when {
-                    expanded -> role
-                    expandedRole == role -> null
-                    else -> expandedRole
-                }
-            },
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("Learning language")
-        Spacer(Modifier.height(4.dp))
-        LanguageChooserField(
-            role = LanguageChooserRole.Learning,
-            selected = state.learningLanguage,
-            presenterOverride = learningLanguagePresenter,
-            onExpandedChange = { role, expanded ->
-                expandedRole = when {
-                    expanded -> role
-                    expandedRole == role -> null
-                    else -> expandedRole
-                }
-            },
-        )
     }
 }
 
