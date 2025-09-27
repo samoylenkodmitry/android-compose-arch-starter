@@ -6,6 +6,8 @@ import com.archstarter.core.common.app.NavigationActions
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
+import com.archstarter.feature.settings.api.SettingsState
+import com.archstarter.feature.settings.api.SettingsStateProvider
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -26,8 +28,9 @@ class DetailViewModelTest {
   @Test
   fun translateReusesCachedTranslation() = runTest {
     val article = sampleArticle()
-    val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
+    val repo = FakeArticleRepo(article) { word, _, _, call -> "$word-$call" }
+    val settings = FakeSettingsStateProvider()
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), settings, SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -50,8 +53,9 @@ class DetailViewModelTest {
   @Test
   fun translateUsesCachedArticleTranslation() = runTest {
     val article = sampleArticle(original = "Original", translated = "Translated")
-    val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
+    val repo = FakeArticleRepo(article) { word, _, _, call -> "$word-$call" }
+    val settings = FakeSettingsStateProvider()
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), settings, SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -68,8 +72,9 @@ class DetailViewModelTest {
   @Test
   fun translateCachesAcrossWordCaseDifferences() = runTest {
     val article = sampleArticle()
-    val repo = FakeArticleRepo(article) { word, call -> "$word-$call" }
-    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
+    val repo = FakeArticleRepo(article) { word, _, _, call -> "$word-$call" }
+    val settings = FakeSettingsStateProvider()
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), settings, SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -92,8 +97,9 @@ class DetailViewModelTest {
   @Test
   fun prefetchPopulatesWordTranslations() = runTest {
     val article = sampleArticle(content = "Alpha beta alpha", original = "seed", translated = "sprout")
-    val repo = FakeArticleRepo(article) { word, _ -> "${word.lowercase(Locale.ROOT)}-t" }
-    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), SavedStateHandle())
+    val repo = FakeArticleRepo(article) { word, _, _, _ -> "${word.lowercase(Locale.ROOT)}-t" }
+    val settings = FakeSettingsStateProvider()
+    val vm = DetailViewModel(repo, App(RecordingNavigationActions()), ScreenBus(), settings, SavedStateHandle())
 
     vm.initOnce(article.id)
     advanceUntilIdle()
@@ -106,9 +112,10 @@ class DetailViewModelTest {
 
   @Test
   fun onSourceClickOpensLink() = runTest {
-    val repo = FakeArticleRepo(null) { _, _ -> null }
+    val repo = FakeArticleRepo(null) { _, _, _, _ -> null }
     val nav = RecordingNavigationActions()
-    val vm = DetailViewModel(repo, App(nav), ScreenBus(), SavedStateHandle())
+    val settings = FakeSettingsStateProvider()
+    val vm = DetailViewModel(repo, App(nav), ScreenBus(), settings, SavedStateHandle())
 
     vm.onSourceClick("")
     vm.onSourceClick("https://example.com")
@@ -154,7 +161,7 @@ class DetailViewModelTest {
 
   private class FakeArticleRepo(
     private val article: ArticleEntity?,
-    private val translationProvider: (String, Int) -> String?,
+    private val translationProvider: (String, String, String, Int) -> String?,
   ) : ArticleRepo {
     override val articles: StateFlow<List<ArticleEntity>> = MutableStateFlow(emptyList())
     var translateCalls: Int = 0
@@ -165,11 +172,26 @@ class DetailViewModelTest {
 
     override fun articleFlow(id: Int): Flow<ArticleEntity?> = flowOf(article)
 
-    override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
+    override suspend fun translateSummary(
+      article: ArticleEntity,
+      fromLanguage: String,
+      toLanguage: String,
+    ): String? = article.summary
 
-    override suspend fun translate(word: String): String? {
+    override suspend fun translate(
+      word: String,
+      fromLanguage: String,
+      toLanguage: String,
+    ): String? {
       translateCalls += 1
-      return translationProvider(word, translateCalls)
+      return translationProvider(word, fromLanguage, toLanguage, translateCalls)
     }
+  }
+
+  private class FakeSettingsStateProvider(
+    initial: SettingsState = SettingsState(),
+  ) : SettingsStateProvider {
+    private val backing = MutableStateFlow(initial)
+    override val state: StateFlow<SettingsState> = backing
   }
 }
