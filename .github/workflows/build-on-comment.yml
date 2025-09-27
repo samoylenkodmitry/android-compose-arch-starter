@@ -13,7 +13,6 @@ jobs:
   build-apk:
     if: >
       github.event.issue.pull_request != null &&
-      contains(toLower(github.event.comment.body || ''), '#buildapk') &&
       (
         github.event.comment.author_association == 'OWNER' ||
         github.event.comment.author_association == 'MEMBER' ||
@@ -26,8 +25,21 @@ jobs:
       JAVA_DISTRIBUTION: temurin
 
     steps:
+      - name: Check for #buildapk trigger
+        id: trigger
+        run: |
+          body="${{ github.event.comment.body }}"
+          shopt -s nocasematch
+          if [[ "$body" == *"#buildapk"* ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Comment does not request an APK build; skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Gather PR info
         id: prinfo
+        if: steps.trigger.outputs.should_run == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -45,6 +57,7 @@ jobs:
 
       - name: Checkout PR merge ref
         id: checkout-merge
+        if: steps.trigger.outputs.should_run == 'true'
         uses: actions/checkout@v4
         continue-on-error: true
         with:
@@ -53,7 +66,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout PR head ref (fallback)
-        if: steps.checkout-merge.outcome == 'failure'
+        if: steps.trigger.outputs.should_run == 'true' && steps.checkout-merge.outcome == 'failure'
         uses: actions/checkout@v4
         with:
           repository: ${{ steps.prinfo.outputs.head_repo }}
@@ -62,6 +75,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up JDK
+        if: steps.trigger.outputs.should_run == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -69,20 +83,24 @@ jobs:
           cache: gradle
 
       - name: Gradle wrapper validation
+        if: steps.trigger.outputs.should_run == 'true'
         uses: gradle/actions/wrapper-validation@v3
 
       - name: Record build start time
+        if: steps.trigger.outputs.should_run == 'true'
         run: echo "BUILD_START=$(date +%s)" >> $GITHUB_ENV
 
       - name: Build APK
+        if: steps.trigger.outputs.should_run == 'true'
         run: ./gradlew $BUILD_TASK --stacktrace
 
       - name: Record build end time
-        if: always()
+        if: steps.trigger.outputs.should_run == 'true' && (success() || failure())
         run: echo "BUILD_END=$(date +%s)" >> $GITHUB_ENV
 
       - name: Locate APK artifacts
         id: findapk
+        if: steps.trigger.outputs.should_run == 'true'
         run: |
           set -euo pipefail
           if [ ! -d app/build/outputs/apk ]; then
@@ -98,6 +116,7 @@ jobs:
           echo "count=${#apks[@]}" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK artifact
+        if: steps.trigger.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ steps.prinfo.outputs.number }}-${{ github.run_number }}
@@ -109,6 +128,7 @@ jobs:
 
       - name: Compose artifact URL
         id: artifact_url
+        if: steps.trigger.outputs.should_run == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -117,7 +137,7 @@ jobs:
             core.setOutput('url', url);
 
       - name: Comment back (success)
-        if: success()
+        if: steps.trigger.outputs.should_run == 'true' && success()
         uses: actions/github-script@v7
         env:
           ARTIFACT_URL: ${{ steps.artifact_url.outputs.url }}
@@ -155,7 +175,7 @@ jobs:
             });
 
       - name: Comment back (failure)
-        if: failure()
+        if: steps.trigger.outputs.should_run == 'true' && failure()
         uses: actions/github-script@v7
         env:
           BUILD_SHA: ${{ steps.prinfo.outputs.head_sha }}
@@ -179,7 +199,6 @@ jobs:
   not-trusted:
     if: >
       github.event.issue.pull_request != null &&
-      contains(toLower(github.event.comment.body || ''), '#buildapk') &&
       !(
         github.event.comment.author_association == 'OWNER' ||
         github.event.comment.author_association == 'MEMBER' ||
@@ -191,4 +210,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const body = context.payload.comment.body || '';
+            if (!body.toLowerCase().includes('#buildapk')) {
+              core.info('Skipping build: comment does not request an APK build.');
+              return;
+            }
             core.info(`Skipping build: commenter is not trusted (association: ${context.payload.comment.author_association}).`);
