@@ -9,7 +9,7 @@ plugins {
 android {
   namespace = "com.archstarter.core.common"
   compileSdk = 35
-  defaultConfig { minSdk = 24 }
+  defaultConfig { minSdk = 33 }
   buildFeatures {
     compose = true
     buildConfig = true

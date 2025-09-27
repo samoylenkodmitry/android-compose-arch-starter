@@ -8,7 +8,7 @@ plugins {
 android {
   namespace = "com.archstarter.feature.detail.api"
   compileSdk = 35
-  defaultConfig { minSdk = 24 }
+  defaultConfig { minSdk = 33 }
   buildFeatures { compose = true }
   composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.get() }
   compileOptions {
