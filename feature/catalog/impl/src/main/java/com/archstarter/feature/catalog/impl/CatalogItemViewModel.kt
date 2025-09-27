@@ -13,6 +13,9 @@ import com.archstarter.core.common.viewmodel.scopedViewModel
 import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
+import com.archstarter.feature.settings.api.SettingsState
+import com.archstarter.feature.settings.api.SettingsStateProvider
+import com.archstarter.feature.settings.api.languageCodes
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -28,9 +31,11 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -39,18 +44,32 @@ class CatalogItemViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
     private val bridge: CatalogBridge,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
+    private val settingsStateProvider: SettingsStateProvider,
     @Assisted private val handle: SavedStateHandle
 ) : ViewModel(), CatalogItemPresenter {
     private val params = MutableSharedFlow<Int>(replay = 1)
     private val articles = params.flatMapLatest { id -> repo.articleFlow(id) }
-    private val translations = articles.flatMapLatest { article ->
-        if (article == null) {
+    private val languagePairs = settingsStateProvider.state
+        .map { it.toLanguagePairOrNull() }
+        .distinctUntilChanged()
+    private val translations = combine(articles, languagePairs) { article, languages ->
+        article to languages
+    }.flatMapLatest { (article, languages) ->
+        val currentArticle = article
+        val currentLanguages = languages
+        if (currentArticle == null || currentLanguages == null) {
             flowOf<String?>(null)
         } else {
             flow {
                 emit(null)
-                val translated = runCatching { repo.translateSummary(article) }.getOrNull()
-                if (!translated.isNullOrBlank() && translated != article.summary) {
+                val translated = runCatching {
+                    repo.translateSummary(
+                        currentArticle,
+                        currentLanguages.from,
+                        currentLanguages.to,
+                    )
+                }.getOrNull()
+                if (!translated.isNullOrBlank() && translated != currentArticle.summary) {
                     emit(translated)
                 }
             }
@@ -88,6 +107,15 @@ class CatalogItemViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory : AssistedVmFactory<CatalogItemViewModel>
+}
+
+private data class LanguagePair(val from: String, val to: String)
+
+private fun SettingsState.toLanguagePairOrNull(): LanguagePair? {
+    val from = languageCodes[nativeLanguage]
+    val to = languageCodes[learningLanguage]
+    if (from.isNullOrBlank() || to.isNullOrBlank()) return null
+    return LanguagePair(from, to)
 }
 
 @Module

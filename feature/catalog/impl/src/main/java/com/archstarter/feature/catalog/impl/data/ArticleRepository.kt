@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,14 +23,24 @@ interface ArticleRepo {
   suspend fun refresh()
   suspend fun article(id: Int): ArticleEntity?
   fun articleFlow(id: Int): Flow<ArticleEntity?>
-  suspend fun translateSummary(article: ArticleEntity): String?
-  suspend fun translate(word: String): String?
+  suspend fun translateSummary(
+    article: ArticleEntity,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String?
+  suspend fun translate(
+    word: String,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String?
 }
 
 @Singleton
 class ArticleRepository @Inject constructor(
   private val wiki: WikipediaService,
   private val dao: ArticleDao,
+  private val translator: TranslatorService,
+  private val translationDao: TranslationDao,
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
 
@@ -56,9 +67,56 @@ class ArticleRepository @Inject constructor(
 
   override fun articleFlow(id: Int): Flow<ArticleEntity?> = dao.observeArticle(id)
 
-  override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
+  override suspend fun translateSummary(
+    article: ArticleEntity,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String? = translateText(article.summary, fromLanguage, toLanguage)
 
-  override suspend fun translate(word: String): String? = word
+  override suspend fun translate(
+    word: String,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String? = translateText(word, fromLanguage, toLanguage)
+
+  private suspend fun translateText(
+    text: String,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String? {
+    val normalized = text.trim()
+    if (normalized.isEmpty()) return null
+    val langPair = buildLangPair(fromLanguage, toLanguage) ?: return normalized
+    val cacheKey = normalized.lowercase(Locale.ROOT)
+    translationDao.translation(langPair, cacheKey)?.let { return it.translation }
+
+    val response = runCatching { translator.translate(normalized, langPair) }.getOrNull()
+    val translation = response
+      ?.takeIf { it.responseStatus == 200 }
+      ?.responseData
+      ?.translatedText
+      ?.trim()
+      ?.takeIf { it.isNotEmpty() }
+      ?: return normalized
+
+    translationDao.insert(
+      TranslationEntity(
+        langPair = langPair,
+        normalizedText = cacheKey,
+        translation = translation,
+        updatedAt = System.currentTimeMillis(),
+      ),
+    )
+    return translation
+  }
+
+  private fun buildLangPair(fromLanguage: String, toLanguage: String): String? {
+    val from = fromLanguage.trim().lowercase(Locale.ROOT)
+    val to = toLanguage.trim().lowercase(Locale.ROOT)
+    if (from.isEmpty() || to.isEmpty()) return null
+    if (from == to) return null
+    return "$from|$to"
+  }
 }
 
 @Module
@@ -98,10 +156,25 @@ object ArticleDataModule {
   fun provideArticleDao(db: AppDatabase): ArticleDao = db.articleDao()
 
   @Provides
+  fun provideTranslationDao(db: AppDatabase): TranslationDao = db.translationDao()
+
+  @Provides
+  @Singleton
+  fun provideTranslatorService(client: OkHttpClient): TranslatorService =
+    Retrofit.Builder()
+      .baseUrl("https://api.mymemory.translated.net/")
+      .client(client)
+      .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+      .build()
+      .create(TranslatorService::class.java)
+
+  @Provides
   @Singleton
   fun provideArticleRepo(
     wiki: WikipediaService,
     dao: ArticleDao,
+    translator: TranslatorService,
+    translationDao: TranslationDao,
   ): ArticleRepo =
-    ArticleRepository(wiki, dao)
+    ArticleRepository(wiki, dao, translator, translationDao)
 }

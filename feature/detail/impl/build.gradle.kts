@@ -21,6 +21,8 @@ dependencies {
   implementation(project(":feature:detail:api"))
   implementation(project(":feature:catalog:impl"))
   implementation(project(":core:common"))
+  implementation(project(":feature:settings:api"))
+  implementation(project(":feature:settings:impl"))
 
   implementation(libs.hilt.android)
   ksp(libs.hilt.compiler)
