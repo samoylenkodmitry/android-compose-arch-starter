@@ -58,78 +58,16 @@ class ArticleRepository @Inject constructor(
 
   override suspend fun refresh() {
     val summary = runCatching { wiki.randomSummary() }.getOrElse { return }
-
-    val prompt = "Summarize this in 3 bullets:\n\n${summary.extract}"
-    val summaryText = runCatching { retry { summarizer.summarize(prompt) } }
-      .getOrElse { return }
-      .takeIf { it.isNotBlank() } ?: return
-
-    val state = settings.state.value
-    val nativeLanguage = state.nativeLanguage
-    val learningLanguage = state.learningLanguage
-    val nativeCode = languageCodes[nativeLanguage] ?: return
-    val learningCode = languageCodes[learningLanguage] ?: return
-
-    val summaryLanguageCode = detectLanguageCode(summaryText)
-    val contentLanguageCode = detectLanguageCode(summary.extract)
-
-    val summarySourceCode = summaryLanguageCode ?: contentLanguageCode ?: nativeCode
-    val contentSourceCode = contentLanguageCode ?: summaryLanguageCode ?: nativeCode
-
-    val contentSourceLanguage = languageDisplayName(contentSourceCode)
-
-    val translatedContent = if (contentSourceCode == nativeCode) {
-      summary.extract
-    } else {
-      translateWithFallback(
-        word = summary.extract,
-        langPair = "$contentSourceCode|$nativeCode",
-        sourceLanguage = contentSourceLanguage,
-        targetLanguage = nativeLanguage
-      ) ?: return
-    }
-
-    val words = translatedContent.split("\\W+".toRegex()).filter { it.length > 3 }
-    val nativeWord = words.randomOrNull() ?: return
-
-    val learningTranslation = if (nativeCode == learningCode) {
-      nativeWord
-    } else {
-      translateWithFallback(
-        word = nativeWord,
-        langPair = "$nativeCode|$learningCode",
-        sourceLanguage = nativeLanguage,
-        targetLanguage = learningLanguage
-      ) ?: return
-    }
-
-    if (nativeCode != learningCode) {
-      storeTranslation("$nativeCode|$learningCode", nativeWord, learningTranslation)
-    }
-
-    val ipa = if (nativeCode == "en") {
-      runCatching {
-        dictionary.lookup(nativeWord).firstOrNull()?.phonetics?.firstOrNull()?.text
-      }.getOrNull()
-    } else {
-      null
-    }
-
-    val replaced = if (learningTranslation == nativeWord) {
-      translatedContent
-    } else {
-      translatedContent.replaceFirst(nativeWord, "$nativeWord ($learningTranslation)")
-    }
     val entity = ArticleEntity(
       id = summary.pageid,
       title = summary.title,
-      summary = summaryText,
-      summaryLanguage = summarySourceCode,
-      content = replaced,
+      summary = "",
+      summaryLanguage = null,
+      content = summary.extract,
       sourceUrl = summary.contentUrls.desktop.page,
-      originalWord = nativeWord,
-      translatedWord = learningTranslation,
-      ipa = ipa,
+      originalWord = "",
+      translatedWord = "",
+      ipa = null,
       createdAt = System.currentTimeMillis()
     )
     dao.insert(entity)

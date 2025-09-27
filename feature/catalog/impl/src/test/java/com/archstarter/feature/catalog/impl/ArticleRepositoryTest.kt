@@ -285,162 +285,45 @@ class ArticleRepositoryTest {
   }
 
   @Test
-  fun refreshTranslatesArticleAndHighlightedWord() = runTest {
+  fun refreshFetchesAndSavesArticle() = runTest {
     val dao = FakeArticleDao()
-    val translations = FakeTranslationDao()
-    val calls = mutableListOf<Pair<String, String>>()
+    val summary = summary()
     val repo = ArticleRepository(
-      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService {
-        override suspend fun summarize(prompt: String): String = when {
-          prompt.startsWith("Summarize this") -> "Résumé"
-          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"fr\"}"
-          else -> "{\"translatedText\":\"Beta\"}"
-        }
-      },
+      wiki = object : WikipediaService { override suspend fun randomSummary() = summary },
+      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "" },
       translator = object : TranslatorService {
-        override suspend fun translate(word: String, langPair: String): TranslationResponse {
-          calls += langPair to word
-          val translation = when (langPair) {
-            "fr|en" -> "Alpha Alpha Alpha"
-            "en|es" -> "Beta"
-            else -> ""
-          }
-          return TranslationResponse(TranslationData(translation))
-        }
+        override suspend fun translate(word: String, langPair: String) = TranslationResponse(TranslationData(""))
       },
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
       settings = FakeSettingsRepository(),
       dao = dao,
-      translationDao = translations,
+      translationDao = FakeTranslationDao(),
     )
 
     repo.refresh()
 
-    assertEquals(listOf("fr|en", "en|es"), calls.map { it.first })
     assertEquals(1, dao.inserted.size)
     val entity = dao.inserted.first()
-    assertEquals("Résumé", entity.summary)
-    assertEquals("fr", entity.summaryLanguage)
-    assertEquals("Alpha (Beta) Alpha Alpha", entity.content)
-    assertEquals("Alpha", entity.originalWord)
-    assertEquals("Beta", entity.translatedWord)
-    assertTrue(translations.inserted.any { it.langPair == "en|es" && it.translation == "Beta" })
-  }
-
-  @Test
-  fun refreshSkipsSummaryTranslationWhenSummaryAlreadyNative() = runTest {
-    val dao = FakeArticleDao()
-    val translations = FakeTranslationDao()
-    val calls = mutableListOf<String>()
-    val repo = ArticleRepository(
-      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService {
-        override suspend fun summarize(prompt: String): String = when {
-          prompt.startsWith("Summarize this") -> "Hello there"
-          prompt.startsWith("Identify the ISO") && prompt.contains("Hello there") ->
-            "{\"languageCode\":\"en\"}"
-          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"fr\"}"
-          else -> error("unexpected prompt: $prompt")
-        }
-      },
-      translator = object : TranslatorService {
-        override suspend fun translate(word: String, langPair: String): TranslationResponse {
-          calls += langPair
-          val translation = when (langPair) {
-            "fr|en" -> "Hello Hello Hello"
-            "en|es" -> "Hola"
-            else -> ""
-          }
-          return TranslationResponse(TranslationData(translation))
-        }
-      },
-      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = FakeSettingsRepository(),
-      dao = dao,
-      translationDao = translations,
-    )
-
-    repo.refresh()
-
-    assertEquals(listOf("fr|en", "en|es"), calls)
-    val entity = dao.inserted.first()
-    assertEquals("Hello there", entity.summary)
-    assertEquals("en", entity.summaryLanguage)
-  }
-
-  @Test
-  fun refreshRespectsCustomLanguages() = runTest {
-    val dao = FakeArticleDao()
-    val translations = FakeTranslationDao()
-    val calls = mutableListOf<String>()
-    val settings = FakeSettingsRepository()
-    settings.updateNative("French")
-    settings.updateLearning("German")
-    val repo = ArticleRepository(
-      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService {
-        override suspend fun summarize(prompt: String): String = when {
-          prompt.startsWith("Summarize this") -> "Résumé"
-          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"es\"}"
-          else -> "{\"translatedText\":\"Gamma\"}"
-        }
-      },
-      translator = object : TranslatorService {
-        override suspend fun translate(word: String, langPair: String): TranslationResponse {
-          calls += langPair
-          val translation = when (langPair) {
-            "es|fr" -> "Alpha Alpha Alpha"
-            "fr|de" -> "Beta"
-            else -> ""
-          }
-          return TranslationResponse(TranslationData(translation))
-        }
-      },
-      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = settings,
-      dao = dao,
-      translationDao = translations,
-    )
-
-    repo.refresh()
-
-    assertTrue(calls.contains("es|fr"))
-    assertTrue(calls.contains("fr|de"))
-    val entity = dao.inserted.first()
-    assertEquals("Alpha", entity.originalWord)
-    assertEquals("Beta", entity.translatedWord)
+    assertEquals(summary.pageid, entity.id)
+    assertEquals(summary.title, entity.title)
+    assertEquals(summary.extract, entity.content)
+    assertEquals(summary.contentUrls.desktop.page, entity.sourceUrl)
+    assertEquals("", entity.summary)
+    assertEquals(null, entity.summaryLanguage)
+    assertEquals("", entity.originalWord)
+    assertEquals("", entity.translatedWord)
+    assertEquals(null, entity.ipa)
   }
 
   @Test
   fun refreshSkipsOnNetworkError() = runTest {
     val dao = FakeArticleDao()
-    val translations = FakeTranslationDao()
     val repo = ArticleRepository(
-      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "ok" },
-      translator = object : TranslatorService {
-        override suspend fun translate(word: String, langPair: String): TranslationResponse {
-          throw IOException("network")
-        }
+      wiki = object : WikipediaService {
+          override suspend fun randomSummary(): WikipediaSummary {
+              throw IOException("network")
+          }
       },
-      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = FakeSettingsRepository(),
-      dao = dao,
-      translationDao = translations,
-    )
-
-    repo.refresh()
-
-    assertTrue(dao.inserted.isEmpty())
-  }
-
-  @Test
-  fun refreshSkipsOnEmptyTranslation() = runTest {
-    val dao = FakeArticleDao()
-    val translations = FakeTranslationDao()
-    val repo = ArticleRepository(
-      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
       summarizer = object : SummarizerService { override suspend fun summarize(prompt: String) = "ok" },
       translator = object : TranslatorService {
         override suspend fun translate(word: String, langPair: String) = TranslationResponse(TranslationData(""))
@@ -448,41 +331,12 @@ class ArticleRepositoryTest {
       dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
       settings = FakeSettingsRepository(),
       dao = dao,
-      translationDao = translations,
+      translationDao = FakeTranslationDao(),
     )
 
     repo.refresh()
 
     assertTrue(dao.inserted.isEmpty())
-  }
-
-  @Test
-  fun refreshFallsBackToAiOnErrorStatus() = runTest {
-    val dao = FakeArticleDao()
-    val translations = FakeTranslationDao()
-    val repo = ArticleRepository(
-      wiki = object : WikipediaService { override suspend fun randomSummary() = summary() },
-      summarizer = object : SummarizerService {
-        override suspend fun summarize(prompt: String): String = when {
-          prompt.startsWith("Summarize this") -> "ok"
-          prompt.startsWith("Identify the ISO") -> "{\"languageCode\":\"fr\"}"
-          else -> "{\"translatedText\":\"hola\"}"
-        }
-      },
-      translator = object : TranslatorService {
-        override suspend fun translate(word: String, langPair: String): TranslationResponse =
-          TranslationResponse(TranslationData("api"), responseStatus = 403)
-      },
-      dictionary = object : DictionaryService { override suspend fun lookup(word: String) = emptyList<DictionaryEntry>() },
-      settings = FakeSettingsRepository(),
-      dao = dao,
-      translationDao = translations,
-    )
-
-    repo.refresh()
-
-    assertEquals(1, dao.inserted.size)
-    assertEquals("hola", dao.inserted.first().translatedWord)
   }
 }
 
