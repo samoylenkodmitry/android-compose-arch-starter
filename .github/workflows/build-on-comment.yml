@@ -1,0 +1,194 @@
+name: Build APK on PR Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  build-apk:
+    if: >
+      github.event.issue.pull_request != null &&
+      contains(toLower(github.event.comment.body || ''), '#buildapk') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TASK: assembleRelease
+      JAVA_VERSION: '17'
+      JAVA_DISTRIBUTION: temurin
+
+    steps:
+      - name: Gather PR info
+        id: prinfo
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.issue.number;
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            core.setOutput('number', prNumber);
+            core.setOutput('merge_ref', `refs/pull/${prNumber}/merge`);
+            core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('head_repo', pr.data.head.repo.full_name);
+            core.setOutput('head_sha', pr.data.head.sha);
+
+      - name: Checkout PR merge ref
+        id: checkout-merge
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: ${{ steps.prinfo.outputs.merge_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout PR head ref (fallback)
+        if: steps.checkout-merge.outcome == 'failure'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.prinfo.outputs.head_repo }}
+          ref: ${{ steps.prinfo.outputs.head_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Gradle wrapper validation
+        uses: gradle/actions/wrapper-validation@v3
+
+      - name: Record build start time
+        run: echo "BUILD_START=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Build APK
+        run: ./gradlew $BUILD_TASK --stacktrace
+
+      - name: Record build end time
+        if: always()
+        run: echo "BUILD_END=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Locate APK artifacts
+        id: findapk
+        run: |
+          set -euo pipefail
+          if [ ! -d app/build/outputs/apk ]; then
+            echo "No APK output directory found at app/build/outputs/apk" >&2
+            exit 1
+          fi
+          mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' -print)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "No APKs found under app/build/outputs/apk" >&2
+            exit 1
+          fi
+          printf '%s\n' "${apks[@]}" | tee apklist.txt
+          echo "count=${#apks[@]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ steps.prinfo.outputs.number }}-${{ github.run_number }}
+          if-no-files-found: error
+          path: |
+            app/build/outputs/apk/**/*.apk
+            apklist.txt
+          retention-days: 7
+
+      - name: Compose artifact URL
+        id: artifact_url
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}/artifacts`;
+            core.setOutput('url', url);
+
+      - name: Comment back (success)
+        if: success()
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT_URL: ${{ steps.artifact_url.outputs.url }}
+          APK_COUNT: ${{ steps.findapk.outputs.count }}
+          BUILD_SHA: ${{ steps.prinfo.outputs.head_sha }}
+        with:
+          script: |
+            const prNumber = context.payload.issue.number;
+            const artifactName = `apk-${prNumber}-${process.env.GITHUB_RUN_NUMBER}`;
+            const url = process.env.ARTIFACT_URL;
+            const sha = (process.env.BUILD_SHA || process.env.GITHUB_SHA || '').substring(0, 7);
+            const start = Number(process.env.BUILD_START || 0);
+            const end = Number(process.env.BUILD_END || 0);
+            let duration = 'unknown';
+            if (start && end && end >= start) {
+              const sec = end - start;
+              const minutes = Math.floor(sec / 60);
+              const seconds = sec % 60;
+              duration = `${minutes}m ${seconds}s`;
+            }
+            const body = [
+              `✅ **APK build complete** for PR #${prNumber}`,
+              '',
+              `**Artifact:** \`${artifactName}\``,
+              `**Download:** ${url}`,
+              `**Commit:** ${sha}`,
+              `**Build duration:** ${duration}`,
+              `**APK count:** ${process.env.APK_COUNT}`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+      - name: Comment back (failure)
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          BUILD_SHA: ${{ steps.prinfo.outputs.head_sha }}
+        with:
+          script: |
+            const prNumber = context.payload.issue.number;
+            const sha = (process.env.BUILD_SHA || process.env.GITHUB_SHA || '').substring(0, 7);
+            const body = [
+              `❌ **APK build failed** for PR #${prNumber}`,
+              '',
+              `Commit: ${sha}`,
+              `Logs: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+  not-trusted:
+    if: >
+      github.event.issue.pull_request != null &&
+      contains(toLower(github.event.comment.body || ''), '#buildapk') &&
+      !(
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log skip reason
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.info(`Skipping build: commenter is not trusted (association: ${context.payload.comment.author_association}).`);
