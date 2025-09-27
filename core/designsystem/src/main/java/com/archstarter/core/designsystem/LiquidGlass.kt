@@ -84,20 +84,17 @@ half4 main(float2 coord) {
     float x = (u_bezel > 0.0) ? (d / u_bezel) : 0.0;
     float slope = dHeightDx(x, u_profile);
     float bend = slope * (1.0 - 1.0 / max(u_ri, 1.0001));
-    float s = sin(u_tiltAngle);
-    float c = cos(u_tiltAngle);
-    float2 rotatedInward = float2(
-        inwardN.x * c - inwardN.y * s,
-        inwardN.x * s + inwardN.y * c
-    );
-    float2 disp = rotatedInward * (u_scale * bend);
+    float2 tilt = float2(u_tiltAngle, u_tiltPitch);
+    float2 disp = -tilt * bend * u_scale;
     float2 sampleCoord = clamp(coord + disp, float2(0.5), u_size - float2(0.5));
     half4 refr = background.eval(sampleCoord);
     float rim = pow(1.0 - x, 3.0);
-    float2 lightDir = float2(-s, c);
-    float pitchBoost = clamp(1.0 + u_tiltPitch * 0.35, 0.6, 1.4);
-    float facing = clamp(0.5 + 0.5 * dot(-n, lightDir), 0.0, 1.0);
-    half specA = half(clamp(u_highlight * rim * facing * pitchBoost, 0.0, 1.0));
+    float2 lightDir = float2(0.0, 1.0);
+    if (length(tilt) > 0.001) {
+        lightDir = normalize(-tilt);
+    }
+    float facing = clamp(0.5 + 0.5 * dot(inwardN, lightDir), 0.0, 1.0);
+    half specA = half(clamp(u_highlight * rim * facing, 0.0, 1.0));
     half4 spec = half4(1.0, 1.0, 1.0, specA);
     half4 base = refr;
     half4 outc = base + spec * spec.a * 0.85;

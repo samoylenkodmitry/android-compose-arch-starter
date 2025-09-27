@@ -10,7 +10,7 @@ internal object LiquidGlassTiltConfig {
     const val MAX_SHADER_ROTATION = 0.45f
     val HALF_PI = (PI / 2.0).toFloat()
     val MAX_ROLL = HALF_PI * 0.9f
-    val MAX_PITCH = HALF_PI * 0.75f
+    val MAX_PITCH = HALF_PI * 0.9f
 }
 
 internal class LiquidGlassTiltProcessor(
@@ -25,7 +25,7 @@ internal class LiquidGlassTiltProcessor(
         val maxRoll: Float = LiquidGlassTiltConfig.MAX_ROLL,
         val maxPitch: Float = LiquidGlassTiltConfig.MAX_PITCH,
         val rollMultiplier: Float = -1f,
-        val pitchMultiplier: Float = -1f,
+        val pitchMultiplier: Float = 1f,
     )
 
     private var filteredAngle = LiquidGlassTilt.Zero.angle
@@ -74,7 +74,7 @@ internal class LiquidGlassTiltProcessor(
         val clamped = rawPitch.coerceIn(-config.maxPitch, config.maxPitch)
         val normalized = clamped / config.maxPitch
         val scaled = normalized * config.pitchMultiplier
-        return scaled.coerceIn(-1f, 1f)
+        return scaled * config.maxShaderRotation
     }
 }
 
