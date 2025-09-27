@@ -1,9 +1,12 @@
 package com.archstarter.core.designsystem
 
+import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Surface
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
@@ -45,13 +48,27 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
             return@DisposableEffect onDispose { }
         }
         val rotationMatrix = FloatArray(9)
+        val remappedRotationMatrix = FloatArray(9)
         val orientationAngles = FloatArray(3)
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                val rawPitch = orientationAngles[0]
-                val rawRoll = orientationAngles[1]
+                val (axisX, axisY) = when (context.displayRotation) {
+                    Surface.ROTATION_0 -> SensorManager.AXIS_X to SensorManager.AXIS_Y
+                    Surface.ROTATION_90 -> SensorManager.AXIS_Y to SensorManager.AXIS_MINUS_X
+                    Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Y
+                    Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Y to SensorManager.AXIS_X
+                    else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
+                }
+                SensorManager.remapCoordinateSystem(
+                    rotationMatrix,
+                    axisX,
+                    axisY,
+                    remappedRotationMatrix
+                )
+                SensorManager.getOrientation(remappedRotationMatrix, orientationAngles)
+                val rawPitch = orientationAngles[1]
+                val rawRoll = orientationAngles[2]
                 tiltProcessor.update(rawRoll, rawPitch)?.let { newTilt ->
                     tilt = newTilt
                 }
@@ -77,3 +94,10 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
     }
     return tilt
 }
+
+@Suppress("DEPRECATION")
+private val Context.displayRotation: Int
+    get() {
+        val windowManager = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        return windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+    }

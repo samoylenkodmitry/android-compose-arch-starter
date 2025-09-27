@@ -213,7 +213,6 @@ fun CatalogScreen() {
       Column(
         modifier = Modifier
           .fillMaxSize()
-          .padding(horizontal = 16.dp, vertical = 16.dp)
       ) {
         Box(
           modifier = Modifier
