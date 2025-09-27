@@ -7,7 +7,7 @@ This workflow builds the Android application whenever a trusted maintainer comme
 1. The [`build-on-comment.yml`](../.github/workflows/build-on-comment.yml) workflow listens for new PR comments.
 2. It validates that the comment body contains `#buildapk` (case-insensitive) and that the commenter is an owner, member, or collaborator.
 3. The workflow checks out the PR's merge ref and falls back to the head ref if the merge ref is unavailable.
-4. Using Temurin JDK 17 and the Gradle cache, it runs the Gradle task specified by the `BUILD_TASK` environment variable (defaults to `assembleRelease`).
+4. Using Temurin JDK 21 and the Gradle cache, it runs the Gradle task specified by the `BUILD_TASK` environment variable (defaults to `assembleRelease`).
 5. Any APKs found in `app/build/outputs/apk` are uploaded as the artifact `apk-<pr>-<run>` along with an `apklist.txt` manifest.
 6. A success comment posts the artifact link, commit SHA, build duration, and APK count. Failures add a comment with a link to the workflow logs.
 7. If an untrusted user triggers the command, the workflow exits early without building and logs the skip reason.
