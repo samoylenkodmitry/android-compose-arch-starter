@@ -4,6 +4,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
@@ -45,13 +46,33 @@ internal fun rememberLiquidGlassTilt(enabled: Boolean): LiquidGlassTilt {
             return@DisposableEffect onDispose { }
         }
         val rotationMatrix = FloatArray(9)
+        val remappedRotationMatrix = FloatArray(9)
         val orientationAngles = FloatArray(3)
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                val rawPitch = orientationAngles[0]
-                val rawRoll = orientationAngles[1]
+                val displayRotation = view.display?.rotation ?: Surface.ROTATION_0
+                val (worldAxisX, worldAxisY) = when (displayRotation) {
+                    Surface.ROTATION_90 -> SensorManager.AXIS_Z to SensorManager.AXIS_MINUS_X
+                    Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Z
+                    Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Z to SensorManager.AXIS_X
+                    else -> SensorManager.AXIS_X to SensorManager.AXIS_Z
+                }
+                val adjustedMatrix = if (
+                    SensorManager.remapCoordinateSystem(
+                        rotationMatrix,
+                        worldAxisX,
+                        worldAxisY,
+                        remappedRotationMatrix,
+                    )
+                ) {
+                    remappedRotationMatrix
+                } else {
+                    rotationMatrix
+                }
+                SensorManager.getOrientation(adjustedMatrix, orientationAngles)
+                val rawPitch = orientationAngles[1]
+                val rawRoll = orientationAngles[2]
                 tiltProcessor.update(rawRoll, rawPitch)?.let { newTilt ->
                     tilt = newTilt
                 }
