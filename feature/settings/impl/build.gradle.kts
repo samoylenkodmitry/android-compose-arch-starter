@@ -9,7 +9,7 @@ plugins {
 android {
   namespace = "com.archstarter.feature.settings.impl"
   compileSdk = 35
-  defaultConfig { minSdk = 24 }
+  defaultConfig { minSdk = 33 }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
