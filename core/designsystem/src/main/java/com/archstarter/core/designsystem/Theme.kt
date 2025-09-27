@@ -2,6 +2,7 @@ package com.archstarter.core.designsystem
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -74,5 +75,9 @@ private val NightColorScheme =
 @Composable
 fun AppTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
   val colorScheme = if (darkTheme) NightColorScheme else DayColorScheme
-  MaterialTheme(colorScheme = colorScheme, content = content)
+  MaterialTheme(colorScheme = colorScheme) {
+    Surface(color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+      content()
+    }
+  }
 }
