@@ -11,9 +11,13 @@ import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
 import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.core.common.viewmodel.scopedViewModel
+import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
+import com.archstarter.feature.settings.api.SettingsState
+import com.archstarter.feature.settings.api.SettingsStateProvider
+import com.archstarter.feature.settings.api.languageCodes
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -26,7 +30,11 @@ import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.LinkedHashMap
 import java.util.Locale
@@ -35,6 +43,7 @@ class DetailViewModel @AssistedInject constructor(
     private val repo: ArticleRepo,
     private val app: App,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
+    private val settingsStateProvider: SettingsStateProvider,
     @Assisted private val handle: SavedStateHandle
 ) : ViewModel(), DetailPresenter {
 
@@ -45,6 +54,7 @@ class DetailViewModel @AssistedInject constructor(
     override fun onCleared() {
         super.onCleared()
         prefetchJob?.cancel()
+        translationJob?.cancel()
         println("DetailsViewModel clear vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
     }
     private val _state = MutableStateFlow(DetailState())
@@ -52,6 +62,10 @@ class DetailViewModel @AssistedInject constructor(
     private var initialized = false
     private val translationCache = mutableMapOf<String, String>()
     private var prefetchJob: Job? = null
+    private var translationJob: Job? = null
+    private val languageState = settingsStateProvider.state
+        .map { it.toLanguagePairOrNull() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     override fun initOnce(params: Int?) {
         if (initialized) return
@@ -68,8 +82,27 @@ class DetailViewModel @AssistedInject constructor(
                     ipa = it.ipa
                 )
                 cacheTranslation(it.originalWord, it.translatedWord)
-                prefetchContentTranslations(it.content)
+                observeArticleTranslations(it)
                 screenBus.send("Detail loaded for article $articleId: ${it.title}")
+            }
+        }
+    }
+
+    private fun observeArticleTranslations(article: ArticleEntity) {
+        translationJob?.cancel()
+        translationJob = viewModelScope.launch {
+            languageState.collectLatest { languages ->
+                if (languages == null) return@collectLatest
+                val translated = repo.translateContent(
+                    article.content,
+                    languages.learning,
+                    languages.native,
+                )?.takeIf { it.isNotBlank() }
+                val displayContent = translated ?: article.content
+                if (_state.value.content != displayContent) {
+                    _state.value = _state.value.copy(content = displayContent)
+                }
+                prefetchContentTranslations(displayContent, languages)
             }
         }
     }
@@ -84,7 +117,12 @@ class DetailViewModel @AssistedInject constructor(
                 return@launch
             }
 
-            val translation = repo.translate(normalizedWord)?.let(::normalizeTranslation)
+            val languages = languageState.value ?: return@launch
+            val translation = repo.translate(
+                normalizedWord,
+                languages.native,
+                languages.learning,
+            )?.let(::normalizeTranslation)
             if (translation.isNullOrEmpty()) return@launch
 
             cacheTranslation(normalizedWord, translation)
@@ -125,7 +163,7 @@ class DetailViewModel @AssistedInject constructor(
         _state.value = _state.value.copy(wordTranslations = translationCache.toMap())
     }
 
-    private fun prefetchContentTranslations(content: String) {
+    private fun prefetchContentTranslations(content: String, languages: LanguagePair) {
         if (content.isBlank()) return
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
@@ -134,7 +172,11 @@ class DetailViewModel @AssistedInject constructor(
                 if (translationCache.containsKey(key)) continue
                 // The MyMemory translate API accepts only a single query per request,
                 // so we translate sequentially.
-                val translation = repo.translate(candidate)?.let(::normalizeTranslation)
+                val translation = repo.translate(
+                    candidate,
+                    languages.native,
+                    languages.learning,
+                )?.let(::normalizeTranslation)
                 if (!translation.isNullOrEmpty()) {
                     cacheTranslation(candidate, translation)
                 }
@@ -161,6 +203,15 @@ class DetailViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory : AssistedVmFactory<DetailViewModel>
+}
+
+private data class LanguagePair(val native: String, val learning: String)
+
+private fun SettingsState.toLanguagePairOrNull(): LanguagePair? {
+    val native = languageCodes[nativeLanguage]
+    val learning = languageCodes[learningLanguage]
+    if (native.isNullOrBlank() || learning.isNullOrBlank()) return null
+    return LanguagePair(native, learning)
 }
 
 @Module

@@ -35,8 +35,21 @@ class CatalogViewModelTest {
       }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
       override fun articleFlow(id: Int) = data.map { list -> list.firstOrNull { it.id == id } }
-      override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
-      override suspend fun translate(word: String): String? = word
+      override suspend fun translateSummary(
+        article: ArticleEntity,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = article.summary
+      override suspend fun translateContent(
+        content: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = content
+      override suspend fun translate(
+        word: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = word
     }
     val nav = object : NavigationActions {
       override fun openDetail(id: Int) {}
@@ -69,8 +82,21 @@ class CatalogViewModelTest {
       }
       override suspend fun article(id: Int): ArticleEntity? = null
       override fun articleFlow(id: Int) = data.map { list -> list.firstOrNull { it.id == id } }
-      override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
-      override suspend fun translate(word: String): String? = word
+      override suspend fun translateSummary(
+        article: ArticleEntity,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = article.summary
+      override suspend fun translateContent(
+        content: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = content
+      override suspend fun translate(
+        word: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = word
     }
     val nav = object : NavigationActions {
       override fun openDetail(id: Int) {}
@@ -98,8 +124,21 @@ class CatalogViewModelTest {
       override suspend fun refresh() { refreshCount++ }
       override suspend fun article(id: Int): ArticleEntity? = data.value.firstOrNull { it.id == id }
       override fun articleFlow(id: Int) = data.map { list -> list.firstOrNull { it.id == id } }
-      override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
-      override suspend fun translate(word: String): String? = word
+      override suspend fun translateSummary(
+        article: ArticleEntity,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = article.summary
+      override suspend fun translateContent(
+        content: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = content
+      override suspend fun translate(
+        word: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = word
     }
     val nav = object : NavigationActions {
       override fun openDetail(id: Int) {}
