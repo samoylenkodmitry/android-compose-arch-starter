@@ -250,7 +250,7 @@ private fun LanguageDropdownMenu(
                 shape = MaterialTheme.shapes.extraSmall,
                 color = Color.Transparent,
             ) {
-                Column(Modifier.padding(vertical = 8.dp)) {
+                Column(Modifier.padding(top = 8.dp)) {
                     OutlinedTextField(
                         value = state.query,
                         onValueChange = onQueryChange,
