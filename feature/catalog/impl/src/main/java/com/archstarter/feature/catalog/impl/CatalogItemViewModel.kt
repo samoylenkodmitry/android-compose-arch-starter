@@ -65,8 +65,8 @@ class CatalogItemViewModel @AssistedInject constructor(
                 val translated = runCatching {
                     repo.translateSummary(
                         currentArticle,
-                        currentLanguages.from,
-                        currentLanguages.to,
+                        currentLanguages.learning,
+                        currentLanguages.native,
                     )
                 }.getOrNull()
                 if (!translated.isNullOrBlank() && translated != currentArticle.summary) {
@@ -109,13 +109,13 @@ class CatalogItemViewModel @AssistedInject constructor(
     interface Factory : AssistedVmFactory<CatalogItemViewModel>
 }
 
-private data class LanguagePair(val from: String, val to: String)
+private data class LanguagePair(val native: String, val learning: String)
 
 private fun SettingsState.toLanguagePairOrNull(): LanguagePair? {
-    val from = languageCodes[nativeLanguage]
-    val to = languageCodes[learningLanguage]
-    if (from.isNullOrBlank() || to.isNullOrBlank()) return null
-    return LanguagePair(from, to)
+    val native = languageCodes[nativeLanguage]
+    val learning = languageCodes[learningLanguage]
+    if (native.isNullOrBlank() || learning.isNullOrBlank()) return null
+    return LanguagePair(native, learning)
 }
 
 @Module

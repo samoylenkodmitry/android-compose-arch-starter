@@ -143,12 +143,12 @@ class ArticleRepositoryTest {
       translationDao = translationDao,
     )
 
-    val translated = repo.translateSummary(article, "en", "es")
-    assertEquals("Original-en|es", translated)
+    val translated = repo.translateSummary(article, "es", "en")
+    assertEquals("Original-es|en", translated)
     assertEquals(1, translator.requests.size)
 
-    val cached = repo.translateSummary(article, "en", "es")
-    assertEquals("Original-en|es", cached)
+    val cached = repo.translateSummary(article, "es", "en")
+    assertEquals("Original-es|en", cached)
     assertEquals(1, translator.requests.size)
   }
 

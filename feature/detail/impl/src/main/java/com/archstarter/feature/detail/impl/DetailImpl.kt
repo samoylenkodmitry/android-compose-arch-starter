@@ -11,6 +11,7 @@ import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
 import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.core.common.viewmodel.scopedViewModel
+import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
@@ -31,6 +32,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -52,6 +54,7 @@ class DetailViewModel @AssistedInject constructor(
     override fun onCleared() {
         super.onCleared()
         prefetchJob?.cancel()
+        translationJob?.cancel()
         println("DetailsViewModel clear vm=${System.identityHashCode(this)}, bus=${System.identityHashCode(screenBus)}")
     }
     private val _state = MutableStateFlow(DetailState())
@@ -59,6 +62,7 @@ class DetailViewModel @AssistedInject constructor(
     private var initialized = false
     private val translationCache = mutableMapOf<String, String>()
     private var prefetchJob: Job? = null
+    private var translationJob: Job? = null
     private val languageState = settingsStateProvider.state
         .map { it.toLanguagePairOrNull() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -78,8 +82,27 @@ class DetailViewModel @AssistedInject constructor(
                     ipa = it.ipa
                 )
                 cacheTranslation(it.originalWord, it.translatedWord)
-                prefetchContentTranslations(it.content)
+                observeArticleTranslations(it)
                 screenBus.send("Detail loaded for article $articleId: ${it.title}")
+            }
+        }
+    }
+
+    private fun observeArticleTranslations(article: ArticleEntity) {
+        translationJob?.cancel()
+        translationJob = viewModelScope.launch {
+            languageState.collectLatest { languages ->
+                if (languages == null) return@collectLatest
+                val translated = repo.translateContent(
+                    article.content,
+                    languages.learning,
+                    languages.native,
+                )?.takeIf { it.isNotBlank() }
+                val displayContent = translated ?: article.content
+                if (_state.value.content != displayContent) {
+                    _state.value = _state.value.copy(content = displayContent)
+                }
+                prefetchContentTranslations(displayContent, languages)
             }
         }
     }
@@ -97,8 +120,8 @@ class DetailViewModel @AssistedInject constructor(
             val languages = languageState.value ?: return@launch
             val translation = repo.translate(
                 normalizedWord,
-                languages.from,
-                languages.to,
+                languages.native,
+                languages.learning,
             )?.let(::normalizeTranslation)
             if (translation.isNullOrEmpty()) return@launch
 
@@ -140,20 +163,19 @@ class DetailViewModel @AssistedInject constructor(
         _state.value = _state.value.copy(wordTranslations = translationCache.toMap())
     }
 
-    private fun prefetchContentTranslations(content: String) {
+    private fun prefetchContentTranslations(content: String, languages: LanguagePair) {
         if (content.isBlank()) return
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
             val words = extractWords(content)
-            val languages = languageState.value ?: return@launch
             for ((key, candidate) in words) {
                 if (translationCache.containsKey(key)) continue
                 // The MyMemory translate API accepts only a single query per request,
                 // so we translate sequentially.
                 val translation = repo.translate(
                     candidate,
-                    languages.from,
-                    languages.to,
+                    languages.native,
+                    languages.learning,
                 )?.let(::normalizeTranslation)
                 if (!translation.isNullOrEmpty()) {
                     cacheTranslation(candidate, translation)
@@ -183,13 +205,13 @@ class DetailViewModel @AssistedInject constructor(
     interface Factory : AssistedVmFactory<DetailViewModel>
 }
 
-private data class LanguagePair(val from: String, val to: String)
+private data class LanguagePair(val native: String, val learning: String)
 
 private fun SettingsState.toLanguagePairOrNull(): LanguagePair? {
-    val from = languageCodes[nativeLanguage]
-    val to = languageCodes[learningLanguage]
-    if (from.isNullOrBlank() || to.isNullOrBlank()) return null
-    return LanguagePair(from, to)
+    val native = languageCodes[nativeLanguage]
+    val learning = languageCodes[learningLanguage]
+    if (native.isNullOrBlank() || learning.isNullOrBlank()) return null
+    return LanguagePair(native, learning)
 }
 
 @Module

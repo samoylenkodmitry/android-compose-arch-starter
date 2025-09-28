@@ -40,6 +40,11 @@ class CatalogViewModelTest {
         fromLanguage: String,
         toLanguage: String,
       ): String? = article.summary
+      override suspend fun translateContent(
+        content: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = content
       override suspend fun translate(
         word: String,
         fromLanguage: String,
@@ -82,6 +87,11 @@ class CatalogViewModelTest {
         fromLanguage: String,
         toLanguage: String,
       ): String? = article.summary
+      override suspend fun translateContent(
+        content: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = content
       override suspend fun translate(
         word: String,
         fromLanguage: String,
@@ -119,6 +129,11 @@ class CatalogViewModelTest {
         fromLanguage: String,
         toLanguage: String,
       ): String? = article.summary
+      override suspend fun translateContent(
+        content: String,
+        fromLanguage: String,
+        toLanguage: String,
+      ): String? = content
       override suspend fun translate(
         word: String,
         fromLanguage: String,

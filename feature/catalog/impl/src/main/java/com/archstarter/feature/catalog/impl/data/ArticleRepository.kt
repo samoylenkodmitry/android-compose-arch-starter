@@ -28,6 +28,11 @@ interface ArticleRepo {
     fromLanguage: String,
     toLanguage: String,
   ): String?
+  suspend fun translateContent(
+    content: String,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String?
   suspend fun translate(
     word: String,
     fromLanguage: String,
@@ -72,6 +77,12 @@ class ArticleRepository @Inject constructor(
     fromLanguage: String,
     toLanguage: String,
   ): String? = translateText(article.summary, fromLanguage, toLanguage)
+
+  override suspend fun translateContent(
+    content: String,
+    fromLanguage: String,
+    toLanguage: String,
+  ): String? = translateText(content, fromLanguage, toLanguage)
 
   override suspend fun translate(
     word: String,
