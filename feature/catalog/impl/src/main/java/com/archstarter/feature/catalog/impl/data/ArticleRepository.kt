@@ -2,6 +2,8 @@ package com.archstarter.feature.catalog.impl.data
 
 import android.content.Context
 import androidx.room.Room
+import com.archstarter.core.common.network.Urls
+import com.archstarter.feature.settings.api.SettingsStateProvider
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -11,6 +13,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -30,6 +33,8 @@ interface ArticleRepo {
 class ArticleRepository @Inject constructor(
   private val wiki: WikipediaService,
   private val dao: ArticleDao,
+  private val settings: SettingsStateProvider,
+  private val translator: TranslatorService,
 ) : ArticleRepo {
   override val articles: Flow<List<ArticleEntity>> = dao.getArticles()
 
@@ -56,9 +61,31 @@ class ArticleRepository @Inject constructor(
 
   override fun articleFlow(id: Int): Flow<ArticleEntity?> = dao.observeArticle(id)
 
-  override suspend fun translateSummary(article: ArticleEntity): String? = article.summary
+  override suspend fun translateSummary(article: ArticleEntity): String? {
+    val settingsState = settings.state.first()
+    val from = article.summaryLanguage ?: settingsState.nativeLanguageCode
+    val to = settingsState.learningLanguageCode
+    return translate(article.summary, from, to)
+  }
 
-  override suspend fun translate(word: String): String? = word
+  override suspend fun translate(word: String): String? {
+    val settingsState = settings.state.first()
+    val from = settingsState.nativeLanguageCode
+    val to = settingsState.learningLanguageCode
+    return translate(word, from, to)
+  }
+
+  private suspend fun translate(
+    text: String,
+    from: String,
+    to: String
+  ): String? {
+    if (from == to) return text
+    val langPair = "$from|$to"
+    return runCatching {
+      translator.translate(text, langPair).responseData.translatedText
+    }.getOrNull()
+  }
 }
 
 @Module
@@ -80,11 +107,21 @@ object ArticleDataModule {
   @Singleton
   fun provideWikipediaService(client: OkHttpClient): WikipediaService =
     Retrofit.Builder()
-      .baseUrl("https://en.wikipedia.org/api/rest_v1/")
+      .baseUrl(Urls.WIKIPEDIA_API_URL)
       .client(client)
       .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
       .build()
       .create(WikipediaService::class.java)
+
+  @Provides
+  @Singleton
+  fun provideTranslationService(client: OkHttpClient): TranslatorService =
+    Retrofit.Builder()
+      .baseUrl(Urls.MYMEMORY_API_URL)
+      .client(client)
+      .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+      .build()
+      .create(TranslatorService::class.java)
 
   @Provides
   @Singleton
@@ -102,6 +139,8 @@ object ArticleDataModule {
   fun provideArticleRepo(
     wiki: WikipediaService,
     dao: ArticleDao,
+    settings: SettingsStateProvider,
+    translator: TranslatorService,
   ): ArticleRepo =
-    ArticleRepository(wiki, dao)
+    ArticleRepository(wiki, dao, settings, translator)
 }
