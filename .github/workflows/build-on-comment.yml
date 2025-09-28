@@ -11,6 +11,10 @@ permissions:
 
 jobs:
   build-apk:
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
     if: >
       github.event.issue.pull_request != null &&
       (
@@ -167,12 +171,24 @@ jobs:
               `**Build duration:** ${duration}`,
               `**APK count:** ${process.env.APK_COUNT}`,
             ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body,
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning('Unable to post success comment due to insufficient token permissions.');
+                await core.summary
+                  .addHeading('APK build comment not posted')
+                  .addRaw('The workflow could not add a comment back to the pull request because the provided token lacks `issues: write` access (HTTP 403).')
+                  .write();
+              } else {
+                throw error;
+              }
+            }
 
       - name: Comment back (failure)
         if: steps.trigger.outputs.should_run == 'true' && failure()
@@ -189,12 +205,24 @@ jobs:
               `Commit: ${sha}`,
               `Logs: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body,
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning('Unable to post failure comment due to insufficient token permissions.');
+                await core.summary
+                  .addHeading('APK build comment not posted')
+                  .addRaw('The workflow could not add a failure comment back to the pull request because the provided token lacks `issues: write` access (HTTP 403).')
+                  .write();
+              } else {
+                throw error;
+              }
+            }
 
   not-trusted:
     if: >
