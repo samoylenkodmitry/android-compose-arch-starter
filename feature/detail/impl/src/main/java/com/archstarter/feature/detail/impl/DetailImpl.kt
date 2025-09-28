@@ -58,18 +58,19 @@ class DetailViewModel @AssistedInject constructor(
         val articleId = params ?: return
         initialized = true
         viewModelScope.launch {
-            repo.article(articleId)?.let {
+            repo.article(articleId)?.let { article ->
+                val translatedContent = repo.translateSummary(article) ?: article.content
                 _state.value = DetailState(
-                    title = it.title,
-                    content = it.content,
-                    sourceUrl = it.sourceUrl,
-                    originalWord = it.originalWord,
-                    translatedWord = it.translatedWord,
-                    ipa = it.ipa
+                    title = article.title,
+                    content = translatedContent,
+                    sourceUrl = article.sourceUrl,
+                    originalWord = article.originalWord,
+                    translatedWord = article.translatedWord,
+                    ipa = article.ipa
                 )
-                cacheTranslation(it.originalWord, it.translatedWord)
-                prefetchContentTranslations(it.content)
-                screenBus.send("Detail loaded for article $articleId: ${it.title}")
+                cacheTranslation(article.originalWord, article.translatedWord)
+                prefetchContentTranslations(article.content)
+                screenBus.send("Detail loaded for article $articleId: ${article.title}")
             }
         }
     }

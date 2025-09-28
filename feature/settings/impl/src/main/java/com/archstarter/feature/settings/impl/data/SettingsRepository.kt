@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.archstarter.feature.settings.api.SettingsState
 import com.archstarter.feature.settings.api.SettingsStateProvider
+import com.archstarter.feature.settings.api.languageCodes
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
@@ -49,20 +50,37 @@ class SettingsRepository @Inject constructor(
             .onEach { preferences ->
                 val native = preferences[NATIVE_LANGUAGE_KEY] ?: defaultState.nativeLanguage
                 val learning = preferences[LEARNING_LANGUAGE_KEY] ?: defaultState.learningLanguage
-                _state.value = SettingsState(nativeLanguage = native, learningLanguage = learning)
+                _state.value = SettingsState(
+                    nativeLanguage = native,
+                    learningLanguage = learning,
+                    nativeLanguageCode = languageCodes[native] ?: defaultState.nativeLanguageCode,
+                    learningLanguageCode = languageCodes[learning] ?: defaultState.learningLanguageCode
+                )
             }
             .launchIn(repositoryScope)
     }
 
     suspend fun updateNative(language: String) {
-        _state.update { current -> current.copy(nativeLanguage = language) }
+        val code = languageCodes[language] ?: return
+        _state.update { current ->
+            current.copy(
+                nativeLanguage = language,
+                nativeLanguageCode = code
+            )
+        }
         dataStore.edit { preferences ->
             preferences[NATIVE_LANGUAGE_KEY] = language
         }
     }
 
     suspend fun updateLearning(language: String) {
-        _state.update { current -> current.copy(learningLanguage = language) }
+        val code = languageCodes[language] ?: return
+        _state.update { current ->
+            current.copy(
+                learningLanguage = language,
+                learningLanguageCode = code
+            )
+        }
         dataStore.edit { preferences ->
             preferences[LEARNING_LANGUAGE_KEY] = language
         }

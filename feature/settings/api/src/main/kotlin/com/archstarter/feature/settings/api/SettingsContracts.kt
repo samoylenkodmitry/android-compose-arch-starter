@@ -22,7 +22,9 @@ val supportedLanguages = languageCodes.keys.toList()
 
 data class SettingsState(
     val nativeLanguage: String = "English",
-    val learningLanguage: String = "Spanish"
+    val learningLanguage: String = "Spanish",
+    val nativeLanguageCode: String = "en",
+    val learningLanguageCode: String = "es"
 )
 
 interface SettingsStateProvider {
