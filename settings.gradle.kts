@@ -30,5 +30,9 @@ include(
   ":feature:detail:impl",
   ":feature:settings:api",
   ":feature:settings:ui",
-  ":feature:settings:impl"
+  ":feature:settings:impl",
+  ":shared:foundation",
+  ":shared:designsystem",
+  ":shared:data",
+  ":shared:platform"
 )
