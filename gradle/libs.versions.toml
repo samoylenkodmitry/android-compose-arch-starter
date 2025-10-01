@@ -15,7 +15,7 @@ room = "2.7.2"
 ksp = "2.0.21-1.0.27"
 kotlinSerialization = "1.7.3"
 datastore = "1.1.1"
-kotlinInject = "0.7.1"
+kotlinInject = "0.8.0"
 
 [plugins]
 android-app = { id = "com.android.application", version.ref = "agp" }
@@ -61,4 +61,5 @@ room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 kotlin-inject-runtime = { module = "me.tatarka.inject:kotlin-inject-runtime", version.ref = "kotlinInject" }
+kotlin-inject-runtime-kmp = { module = "me.tatarka.inject:kotlin-inject-runtime-kmp", version.ref = "kotlinInject" }
 kotlin-inject-compiler = { module = "me.tatarka.inject:kotlin-inject-compiler-ksp", version.ref = "kotlinInject" }

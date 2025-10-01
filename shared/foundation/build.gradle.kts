@@ -1,3 +1,6 @@
+@file:Suppress("UnstableApiUsage")
+
+import com.google.devtools.ksp.gradle.KspAATask
 import org.gradle.api.JavaVersion
 
 plugins {
@@ -5,6 +8,7 @@ plugins {
   alias(libs.plugins.android.lib)
   alias(libs.plugins.compose.multiplatform)
   alias(libs.plugins.kotlin.compose)
+  alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -16,9 +20,12 @@ kotlin {
 
   sourceSets {
     val commonMain by getting {
+      kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
       dependencies {
         implementation(compose.runtime)
         implementation(compose.foundation)
+        implementation(libs.kotlinx.coroutines.core)
+        implementation(libs.kotlin.inject.runtime.kmp)
       }
     }
     val commonTest by getting {
@@ -36,5 +43,17 @@ android {
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+  }
+}
+
+dependencies {
+  add("kspCommonMainMetadata", libs.kotlin.inject.compiler)
+  add("kspAndroid", libs.kotlin.inject.compiler)
+  add("kspDesktop", libs.kotlin.inject.compiler)
+}
+
+tasks.withType<KspAATask>().configureEach {
+  if (name != "kspCommonMainKotlinMetadata") {
+    dependsOn("kspCommonMainKotlinMetadata")
   }
 }
