@@ -290,7 +290,7 @@ fun CatalogScreen() {
             onClick = presenter::onSettingsClick,
             colors = transparentButtonColors,
             elevation = transparentButtonElevation,
-          ) { Text("Settings", color = MaterialTheme.colorScheme.inverseOnSurface) }
+          ) { Text("Settings", color = MaterialTheme.colorScheme.onSurface) }
         }
       }
       Box(
@@ -310,11 +310,11 @@ fun CatalogScreen() {
               CircularProgressIndicator(
                 modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.inverseOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
               )
               Spacer(Modifier.width(8.dp))
             }
-            Text("Random (${state.items.size})", color = MaterialTheme.colorScheme.inverseOnSurface)
+            Text("Random (${state.items.size})", color = MaterialTheme.colorScheme.onSurface)
           }
         }
       }
