@@ -1,8 +1,6 @@
 plugins {
   alias(libs.plugins.android.app)
   alias(libs.plugins.kotlin.android)
-  alias(libs.plugins.hilt)
-  alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.ksp)
 }
 
@@ -18,7 +16,7 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   buildFeatures { compose = true }
-  composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.get() }
+  composeOptions { kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get() }
   packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -38,21 +36,7 @@ android {
 }
 
 dependencies {
-  implementation(project(":core:designsystem"))
-  implementation(project(":core:common"))
-  implementation(project(":feature:onboarding:api"))
-  implementation(project(":feature:onboarding:ui"))
-  implementation(project(":feature:onboarding:impl"))
-  implementation(project(":feature:catalog:api"))
-  implementation(project(":feature:catalog:ui"))
-  implementation(project(":feature:catalog:impl"))
-  implementation(project(":feature:detail:api"))
-  implementation(project(":feature:detail:ui"))
-  implementation(project(":feature:detail:impl"))
-  implementation(project(":feature:settings:api"))
-  implementation(project(":feature:settings:ui"))
-  implementation(project(":feature:settings:impl"))
-
+  implementation(project(":shared"))
   implementation(libs.activity.compose)
   implementation(libs.compose.ui)
   implementation(libs.compose.material3)
@@ -62,10 +46,6 @@ dependencies {
   implementation(libs.lifecycle.runtime.compose)
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.navigation.compose)
-
-  implementation(libs.hilt.android)
-  ksp(libs.hilt.compiler)
-  implementation(libs.hilt.nav.compose)
 
   androidTestImplementation(libs.compose.ui.test.junit4)
   debugImplementation(libs.compose.ui.test.manifest)
