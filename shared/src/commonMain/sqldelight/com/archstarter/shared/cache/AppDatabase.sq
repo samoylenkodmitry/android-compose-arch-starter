@@ -1,0 +1,45 @@
+import com.archstarter.feature.catalog.impl.data.ArticleEntity;
+import com.archstarter.feature.catalog.impl.data.TranslationEntity;
+
+CREATE TABLE articles (
+  id INTEGER AS Int NOT NULL PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  summaryLanguage TEXT,
+  content TEXT NOT NULL,
+  sourceUrl TEXT NOT NULL,
+  originalWord TEXT NOT NULL,
+  translatedWord TEXT NOT NULL,
+  ipa TEXT,
+  createdAt INTEGER NOT NULL
+);
+
+CREATE TABLE translations (
+  langPair TEXT NOT NULL,
+  normalizedText TEXT NOT NULL,
+  translation TEXT NOT NULL,
+  updatedAt INTEGER NOT NULL,
+  PRIMARY KEY (langPair, normalizedText)
+);
+
+-- Article Queries
+getArticles:
+SELECT * FROM articles ORDER BY createdAt DESC;
+
+observeArticle:
+SELECT * FROM articles WHERE id = :id;
+
+getArticle:
+SELECT * FROM articles WHERE id = :id;
+
+insertArticle:
+INSERT OR REPLACE INTO articles(id, title, summary, summaryLanguage, content, sourceUrl, originalWord, translatedWord, ipa, createdAt)
+VALUES ?;
+
+-- Translation Queries
+getTranslation:
+SELECT * FROM translations WHERE langPair = :langPair AND normalizedText = :normalizedText LIMIT 1;
+
+insertTranslation:
+INSERT OR REPLACE INTO translations(langPair, normalizedText, translation, updatedAt)
+VALUES ?;
