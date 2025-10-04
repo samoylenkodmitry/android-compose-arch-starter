@@ -4,31 +4,30 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.scope.ScreenBus
-import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
-import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.feature.settings.api.LanguageChooserRole
 import com.archstarter.feature.settings.api.SettingsPresenter
 import com.archstarter.feature.settings.api.SettingsState
 import com.archstarter.feature.settings.impl.data.SettingsRepository
 import com.archstarter.feature.settings.impl.language.LanguageSelectionBus
-import dagger.Binds
-import dagger.Module
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.InstallIn
-import dagger.multibindings.IntoMap
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import me.tatarka.inject.annotations.Assisted
+import me.tatarka.inject.annotations.Inject
+import me.tatarka.inject.annotations.IntoMap
+import me.tatarka.inject.annotations.Provides
+import androidx.compose.runtime.Composable
+import com.archstarter.core.common.presenter.PresenterProvider
+import com.archstarter.core.common.viewmodel.scopedViewModel
 
-class SettingsViewModel @AssistedInject constructor(
+@Inject
+class SettingsViewModel(
     private val repo: SettingsRepository,
-    private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
+    private val screenBus: ScreenBus,
     private val languageSelectionBus: LanguageSelectionBus,
-    @Assisted private val handle: SavedStateHandle
+    @Assisted private val handle: SavedStateHandle,
 ) : ViewModel(), SettingsPresenter {
     override val state: StateFlow<SettingsState> = repo.state
 
@@ -71,17 +70,30 @@ class SettingsViewModel @AssistedInject constructor(
 
     override fun initOnce(params: Unit?) {
     }
-
-    @AssistedFactory
-    interface Factory : AssistedVmFactory<SettingsViewModel>
 }
 
-@Module
-@InstallIn(ScreenComponent::class)
-abstract class SettingsVmBindingModule {
+@Inject
+class SettingsViewModelFactory(
+    private val create: (SavedStateHandle) -> SettingsViewModel,
+) : AssistedVmFactory<SettingsViewModel> {
+    override fun create(handle: SavedStateHandle): SettingsViewModel = create(handle)
+}
 
-    @Binds
+interface SettingsScreenBindings {
+    @Provides
     @IntoMap
-    @VmKey(SettingsViewModel::class)
-    abstract fun settingsFactory(f: SettingsViewModel.Factory): AssistedVmFactory<out ViewModel>
+    fun settingsFactory(factory: SettingsViewModelFactory): Pair<Class<out ViewModel>, AssistedVmFactory<out ViewModel>> =
+        SettingsViewModel::class.java to factory
+}
+
+interface SettingsPresenterBindings {
+    @Provides
+    @IntoMap
+    fun provideSettingsPresenter(): Pair<Class<*>, PresenterProvider<*>> =
+        SettingsPresenter::class.java to object : PresenterProvider<SettingsPresenter> {
+            @Composable
+            override fun provide(key: String?): SettingsPresenter {
+                return scopedViewModel<SettingsViewModel>(key)
+            }
+        }
 }

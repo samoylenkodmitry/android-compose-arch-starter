@@ -3,33 +3,32 @@ package com.archstarter.feature.settings.impl.language
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
-import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.feature.settings.api.LanguageChooserParams
 import com.archstarter.feature.settings.api.LanguageChooserPresenter
 import com.archstarter.feature.settings.api.LanguageChooserState
 import com.archstarter.feature.settings.api.LanguageSelectionEvent
-import dagger.Binds
-import dagger.Module
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.InstallIn
-import dagger.multibindings.IntoMap
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.tatarka.inject.annotations.Assisted
+import me.tatarka.inject.annotations.Inject
+import me.tatarka.inject.annotations.IntoMap
+import me.tatarka.inject.annotations.Provides
+import androidx.compose.runtime.Composable
+import com.archstarter.core.common.presenter.PresenterProvider
+import com.archstarter.core.common.viewmodel.scopedViewModel
 
-class LanguageChooserViewModel @AssistedInject constructor(
+@Inject
+class LanguageChooserViewModel(
     private val repository: LanguageRepository,
     private val selectionBus: LanguageSelectionBus,
-    @Suppress("unused") @Assisted private val savedStateHandle: SavedStateHandle,
+    @Assisted private val savedStateHandle: SavedStateHandle,
 ) : ViewModel(), LanguageChooserPresenter {
 
     private val _state = MutableStateFlow(LanguageChooserState())
@@ -149,16 +148,30 @@ class LanguageChooserViewModel @AssistedInject constructor(
         if (query.isBlank()) return languages
         return languages.filter { language -> language.contains(query, ignoreCase = true) }
     }
-
-    @AssistedFactory
-    interface Factory : AssistedVmFactory<LanguageChooserViewModel>
 }
 
-@Module
-@InstallIn(ScreenComponent::class)
-abstract class LanguageChooserBindingModule {
-    @Binds
+@Inject
+class LanguageChooserViewModelFactory(
+    private val create: (SavedStateHandle) -> LanguageChooserViewModel,
+) : AssistedVmFactory<LanguageChooserViewModel> {
+    override fun create(handle: SavedStateHandle): LanguageChooserViewModel = create(handle)
+}
+
+interface LanguageChooserScreenBindings {
+    @Provides
     @IntoMap
-    @VmKey(LanguageChooserViewModel::class)
-    abstract fun languageChooserFactory(factory: LanguageChooserViewModel.Factory): AssistedVmFactory<out ViewModel>
+    fun languageChooserFactory(factory: LanguageChooserViewModelFactory): Pair<Class<out ViewModel>, AssistedVmFactory<out ViewModel>> =
+        LanguageChooserViewModel::class.java to factory
+}
+
+interface LanguageChooserPresenterBindings {
+    @Provides
+    @IntoMap
+    fun provideLanguageChooserPresenter(): Pair<Class<*>, PresenterProvider<*>> =
+        com.archstarter.feature.settings.api.LanguageChooserPresenter::class.java to object : PresenterProvider<LanguageChooserPresenter> {
+            @Composable
+            override fun provide(key: String?): LanguageChooserPresenter {
+                return scopedViewModel<LanguageChooserViewModel>(key)
+            }
+        }
 }
