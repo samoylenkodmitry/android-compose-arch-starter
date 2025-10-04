@@ -7,27 +7,16 @@ import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.app.App
 import com.archstarter.core.common.presenter.PresenterProvider
 import com.archstarter.core.common.scope.ScreenBus
-import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
-import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.core.common.viewmodel.scopedViewModel
 import com.archstarter.feature.catalog.impl.data.ArticleEntity
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
 import com.archstarter.feature.detail.api.DetailPresenter
 import com.archstarter.feature.detail.api.DetailState
-import com.archstarter.feature.settings.api.SettingsState
 import com.archstarter.feature.settings.api.SettingsStateProvider
 import com.archstarter.feature.settings.api.languageCodes
-import dagger.Binds
-import dagger.Module
-import dagger.Provides
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import dagger.multibindings.ClassKey
-import dagger.multibindings.IntoMap
+import java.util.LinkedHashMap
+import java.util.Locale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,15 +25,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.LinkedHashMap
-import java.util.Locale
+import me.tatarka.inject.annotations.Assisted
+import me.tatarka.inject.annotations.Inject
+import me.tatarka.inject.annotations.IntoMap
+import me.tatarka.inject.annotations.Provides
 
-class DetailViewModel @AssistedInject constructor(
+@Inject
+class DetailViewModel(
     private val repo: ArticleRepo,
     private val app: App,
-    private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
+    private val screenBus: ScreenBus,
     private val settingsStateProvider: SettingsStateProvider,
-    @Assisted private val handle: SavedStateHandle
+    @Assisted private val handle: SavedStateHandle,
 ) : ViewModel(), DetailPresenter {
 
     init {
@@ -170,8 +162,6 @@ class DetailViewModel @AssistedInject constructor(
             val words = extractWords(content)
             for ((key, candidate) in words) {
                 if (translationCache.containsKey(key)) continue
-                // The MyMemory translate API accepts only a single query per request,
-                // so we translate sequentially.
                 val translation = repo.translate(
                     candidate,
                     languages.native,
@@ -200,42 +190,39 @@ class DetailViewModel @AssistedInject constructor(
     companion object {
         private val WORD_REGEX = Regex("[\\p{L}\\p{Nd}']+")
     }
+}
 
-    @AssistedFactory
-    interface Factory : AssistedVmFactory<DetailViewModel>
+@Inject
+class DetailViewModelFactory(
+    private val create: (SavedStateHandle) -> DetailViewModel,
+) : AssistedVmFactory<DetailViewModel> {
+    override fun create(handle: SavedStateHandle): DetailViewModel = create(handle)
 }
 
 private data class LanguagePair(val native: String, val learning: String)
 
-private fun SettingsState.toLanguagePairOrNull(): LanguagePair? {
+private fun com.archstarter.feature.settings.api.SettingsState.toLanguagePairOrNull(): LanguagePair? {
     val native = languageCodes[nativeLanguage]
     val learning = languageCodes[learningLanguage]
     if (native.isNullOrBlank() || learning.isNullOrBlank()) return null
     return LanguagePair(native, learning)
 }
 
-@Module
-@InstallIn(SingletonComponent::class)
-object DetailPresenterBindings {
+interface DetailAppBindings {
     @Provides
     @IntoMap
-    @ClassKey(DetailPresenter::class)
-    fun provideDetailPresenterProvider(): PresenterProvider<*> {
-        return object : PresenterProvider<DetailPresenter> {
+    fun provideDetailPresenter(): Pair<Class<*>, PresenterProvider<*>> =
+        DetailPresenter::class.java to object : PresenterProvider<DetailPresenter> {
             @Composable
             override fun provide(key: String?): DetailPresenter {
                 return scopedViewModel<DetailViewModel>(key)
             }
         }
-    }
 }
 
-@Module
-@InstallIn(ScreenComponent::class)
-abstract class DetailVmBindingModule {
-
-    @Binds
+interface DetailScreenBindings {
+    @Provides
     @IntoMap
-    @VmKey(DetailViewModel::class)
-    abstract fun detailFactory(f: DetailViewModel.Factory): AssistedVmFactory<out ViewModel>
+    fun detailFactory(factory: DetailViewModelFactory): Pair<Class<out ViewModel>, AssistedVmFactory<out ViewModel>> =
+        DetailViewModel::class.java to factory
 }

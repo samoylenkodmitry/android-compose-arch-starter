@@ -7,12 +7,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.archstarter.core.common.app.AppScope
 import com.archstarter.feature.settings.api.SettingsState
 import com.archstarter.feature.settings.api.SettingsStateProvider
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,12 +21,13 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import me.tatarka.inject.annotations.Inject
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-@Singleton
+@AppScope
 class SettingsRepository @Inject constructor(
-    @ApplicationContext context: Context,
+    private val context: Context,
 ) : SettingsStateProvider {
     private val dataStore: DataStore<Preferences> = context.settingsDataStore
     private val defaultState = SettingsState()

@@ -1,17 +1,10 @@
 package com.archstarter.feature.settings.impl.data
 
 import com.archstarter.feature.settings.api.SettingsStateProvider
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
+import me.tatarka.inject.annotations.Provides
 
-@Module
-@InstallIn(SingletonComponent::class)
-object SettingsDataModule {
+interface SettingsDataBindings {
   @Provides
-  @Singleton
   fun provideSettingsStateProvider(
     repository: SettingsRepository,
   ): SettingsStateProvider = repository

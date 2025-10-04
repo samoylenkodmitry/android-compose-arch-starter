@@ -2,17 +2,13 @@ package com.archstarter.feature.catalog.impl.data
 
 import android.content.Context
 import androidx.room.Room
+import com.archstarter.core.common.app.AppScope
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
+import me.tatarka.inject.annotations.Inject
+import me.tatarka.inject.annotations.Provides
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -40,7 +36,7 @@ interface ArticleRepo {
   ): String?
 }
 
-@Singleton
+@AppScope
 class ArticleRepository @Inject constructor(
   private val wiki: WikipediaService,
   private val dao: ArticleDao,
@@ -130,13 +126,9 @@ class ArticleRepository @Inject constructor(
   }
 }
 
-@Module
-@InstallIn(SingletonComponent::class)
-object ArticleDataModule {
-  private val json = Json { ignoreUnknownKeys = true }
-
+interface ArticleDataBindings {
   @Provides
-  @Singleton
+  @AppScope
   fun provideOkHttp(): OkHttpClient =
     OkHttpClient.Builder()
       .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
@@ -146,7 +138,7 @@ object ArticleDataModule {
       .build()
 
   @Provides
-  @Singleton
+  @AppScope
   fun provideWikipediaService(client: OkHttpClient): WikipediaService =
     Retrofit.Builder()
       .baseUrl("https://en.wikipedia.org/api/rest_v1/")
@@ -156,8 +148,8 @@ object ArticleDataModule {
       .create(WikipediaService::class.java)
 
   @Provides
-  @Singleton
-  fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
+  @AppScope
+  fun provideDatabase(context: Context): AppDatabase =
     Room.databaseBuilder(context, AppDatabase::class.java, "articles.db")
       .fallbackToDestructiveMigration(dropAllTables = true)
       .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
@@ -170,7 +162,7 @@ object ArticleDataModule {
   fun provideTranslationDao(db: AppDatabase): TranslationDao = db.translationDao()
 
   @Provides
-  @Singleton
+  @AppScope
   fun provideTranslatorService(client: OkHttpClient): TranslatorService =
     Retrofit.Builder()
       .baseUrl("https://api.mymemory.translated.net/")
@@ -180,7 +172,7 @@ object ArticleDataModule {
       .create(TranslatorService::class.java)
 
   @Provides
-  @Singleton
+  @AppScope
   fun provideArticleRepo(
     wiki: WikipediaService,
     dao: ArticleDao,
@@ -189,3 +181,5 @@ object ArticleDataModule {
   ): ArticleRepo =
     ArticleRepository(wiki, dao, translator, translationDao)
 }
+
+private val json = Json { ignoreUnknownKeys = true }

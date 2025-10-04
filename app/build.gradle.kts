@@ -1,7 +1,6 @@
 plugins {
   alias(libs.plugins.android.app)
   alias(libs.plugins.kotlin.android)
-  alias(libs.plugins.hilt)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.ksp)
 }
@@ -63,9 +62,8 @@ dependencies {
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.navigation.compose)
 
-  implementation(libs.hilt.android)
-  ksp(libs.hilt.compiler)
-  implementation(libs.hilt.nav.compose)
+  implementation(libs.kotlin.inject.runtime)
+  ksp(libs.kotlin.inject.compiler)
 
   androidTestImplementation(libs.compose.ui.test.junit4)
   debugImplementation(libs.compose.ui.test.manifest)

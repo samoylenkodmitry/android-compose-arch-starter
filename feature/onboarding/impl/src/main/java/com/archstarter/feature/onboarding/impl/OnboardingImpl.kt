@@ -5,23 +5,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.presenter.PresenterProvider
-import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
-import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.core.common.viewmodel.scopedViewModel
 import com.archstarter.feature.onboarding.api.OnboardingPresenter
 import com.archstarter.feature.onboarding.api.OnboardingState
 import com.archstarter.feature.onboarding.api.OnboardingStatusProvider
-import dagger.Binds
-import dagger.Module
-import dagger.Provides
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import dagger.multibindings.ClassKey
-import dagger.multibindings.IntoMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,8 +17,13 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import me.tatarka.inject.annotations.Assisted
+import me.tatarka.inject.annotations.Inject
+import me.tatarka.inject.annotations.IntoMap
+import me.tatarka.inject.annotations.Provides
 
-class OnboardingViewModel @AssistedInject constructor(
+@Inject
+class OnboardingViewModel(
     private val repository: OnboardingRepository,
     @Assisted private val handle: SavedStateHandle,
 ) : ViewModel(), OnboardingPresenter {
@@ -53,39 +46,33 @@ class OnboardingViewModel @AssistedInject constructor(
     }
 
     override fun initOnce(params: Unit?) = Unit
-
-    @AssistedFactory
-    interface Factory : AssistedVmFactory<OnboardingViewModel>
 }
 
-@Module
-@InstallIn(SingletonComponent::class)
-object OnboardingBindings {
+@Inject
+class OnboardingViewModelFactory(
+    private val create: (SavedStateHandle) -> OnboardingViewModel,
+) : AssistedVmFactory<OnboardingViewModel> {
+    override fun create(handle: SavedStateHandle): OnboardingViewModel = create(handle)
+}
+
+interface OnboardingAppBindings {
+    @Provides
+    fun provideOnboardingStatus(repo: OnboardingRepository): OnboardingStatusProvider = repo
+
     @Provides
     @IntoMap
-    @ClassKey(OnboardingPresenter::class)
-    fun provideOnboardingPresenter(): PresenterProvider<*> {
-        return object : PresenterProvider<OnboardingPresenter> {
+    fun provideOnboardingPresenter(): Pair<Class<*>, PresenterProvider<*>> =
+        OnboardingPresenter::class.java to object : PresenterProvider<OnboardingPresenter> {
             @Composable
             override fun provide(key: String?): OnboardingPresenter {
                 return scopedViewModel<OnboardingViewModel>(key)
             }
         }
-    }
 }
 
-@Module
-@InstallIn(ScreenComponent::class)
-abstract class OnboardingBindingModule {
-    @Binds
-    @IntoMap
-    @VmKey(OnboardingViewModel::class)
-    abstract fun onboardingFactory(factory: OnboardingViewModel.Factory): AssistedVmFactory<out ViewModel>
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
-object OnboardingRepositoryModule {
+interface OnboardingScreenBindings {
     @Provides
-    fun provideOnboardingStatus(repo: OnboardingRepository): OnboardingStatusProvider = repo
+    @IntoMap
+    fun onboardingFactory(factory: OnboardingViewModelFactory): Pair<Class<out ViewModel>, AssistedVmFactory<out ViewModel>> =
+        OnboardingViewModel::class.java to factory
 }

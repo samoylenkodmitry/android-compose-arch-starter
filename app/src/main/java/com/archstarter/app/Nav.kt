@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,8 +22,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.archstarter.core.common.app.App
 import com.archstarter.core.common.presenter.LocalPresenterResolver
-import com.archstarter.core.common.scope.LocalScreenBuilder
-import com.archstarter.core.common.scope.ScreenComponent
+import com.archstarter.core.common.scope.LocalScreenComponentFactory
+import com.archstarter.core.common.scope.LocalSubscreenComponentFactory
+import com.archstarter.core.common.scope.ScreenComponentNode
+import com.archstarter.core.common.scope.SubscreenComponentNode
 import com.archstarter.core.common.scope.ScreenScope
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.Catalog
@@ -36,69 +37,71 @@ import com.archstarter.feature.onboarding.api.OnboardingStatusProvider
 import com.archstarter.feature.onboarding.ui.OnboardingScreen
 import com.archstarter.feature.settings.api.Settings
 import com.archstarter.feature.settings.ui.SettingsScreen
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
-    @Inject
-    lateinit var resolver: HiltPresenterResolver
-
-    @Inject
-    lateinit var appManager: AppScopeManager
-
-    @Inject
-    lateinit var screenBuilder: ScreenComponent.Builder
-
-    @Inject
-    lateinit var onboardingStatus: OnboardingStatusProvider
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
+        val context = applicationContext
         setContent {
             AppTheme {
                 val nav = rememberNavController()
-                val app = remember(nav) {
-                    val actions = NavigationActions(nav)
-                    App(actions).also { appManager.create(it) }
+                val app = remember(nav) { App(NavigationActions(nav)) }
+                val appComponent = remember(app) { AppComponent::class.create(context, app) }
+                val presenterResolver = remember(appComponent) { appComponent.presenterResolver }
+                val screenFactory = remember(appComponent) {
+                    { ScreenComponent::class.create(appComponent) as ScreenComponentNode }
                 }
-                DisposableEffect(app) {
-                    onDispose { appManager.clear() }
+                val subscreenFactory = remember(appComponent) {
+                    { parent: ScreenComponentNode ->
+                        val screenParent = parent as? ScreenComponent
+                            ?: error("Cannot create subscreen from $parent")
+                        SubscreenComponent::class.create(screenParent) as SubscreenComponentNode
+                    }
                 }
+                val onboardingStatus = appComponent.onboardingStatusProvider
                 CompositionLocalProvider(
-                    LocalPresenterResolver provides resolver,
-                    LocalScreenBuilder provides screenBuilder
+                    LocalPresenterResolver provides presenterResolver,
+                    LocalScreenComponentFactory provides screenFactory,
+                    LocalSubscreenComponentFactory provides subscreenFactory,
                 ) {
-                    val onboardingCompleted by onboardingStatus.hasCompleted.collectAsStateWithLifecycle(initialValue = null)
-                    val startDestinationState = remember { mutableStateOf<Any?>(null) }
-                    if (startDestinationState.value == null && onboardingCompleted != null) {
-                        startDestinationState.value = if (onboardingCompleted == true) Catalog else Onboarding
-                    }
-                    Box(
-                        modifier = Modifier
-                            .imePadding()
-                            .navigationBarsPadding()
-                            .systemBarsPadding()
-                            .safeContentPadding()
-                            .fillMaxSize()
-                    ) {
-                        val startDestination = startDestinationState.value
-                        if (startDestination != null) {
-                            AppNavHost(
-                                nav = nav,
-                                startDestination = startDestination,
-                                onOnboardingFinished = {
-                                    nav.navigate(Catalog) {
-                                        popUpTo(Onboarding) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                }
-                            )
-                        }
-                    }
+                    AppContent(nav, onboardingStatus)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AppContent(
+    nav: NavHostController,
+    onboardingStatus: OnboardingStatusProvider,
+) {
+    val onboardingCompleted by onboardingStatus.hasCompleted.collectAsStateWithLifecycle(initialValue = null)
+    val startDestinationState = remember { mutableStateOf<Any?>(null) }
+    if (startDestinationState.value == null && onboardingCompleted != null) {
+        startDestinationState.value = if (onboardingCompleted == true) Catalog else Onboarding
+    }
+    Box(
+        modifier = Modifier
+            .imePadding()
+            .navigationBarsPadding()
+            .systemBarsPadding()
+            .safeContentPadding()
+            .fillMaxSize(),
+    ) {
+        val startDestination = startDestinationState.value
+        if (startDestination != null) {
+            AppNavHost(
+                nav = nav,
+                startDestination = startDestination,
+                onOnboardingFinished = {
+                    nav.navigate(Catalog) {
+                        popUpTo(Onboarding) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
     }
 }
