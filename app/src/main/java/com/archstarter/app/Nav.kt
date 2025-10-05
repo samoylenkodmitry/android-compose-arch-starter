@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,8 +26,10 @@ import com.archstarter.core.common.presenter.LocalPresenterResolver
 import com.archstarter.core.common.scope.LocalScreenComponentFactory
 import com.archstarter.core.common.scope.LocalSubscreenComponentFactory
 import com.archstarter.core.common.scope.ScreenComponentNode
-import com.archstarter.core.common.scope.SubscreenComponentNode
 import com.archstarter.core.common.scope.ScreenScope
+import com.archstarter.core.common.scope.SubscreenComponentNode
+import com.archstarter.core.common.scope.ScreenComponentFactory
+import com.archstarter.core.common.scope.SubscreenComponentFactory
 import com.archstarter.core.designsystem.AppTheme
 import com.archstarter.feature.catalog.api.Catalog
 import com.archstarter.feature.catalog.ui.CatalogScreen
@@ -43,20 +46,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         val context = applicationContext
+        val appScopeManager = (application as MyApp).appScopeManager
         setContent {
             AppTheme {
                 val nav = rememberNavController()
                 val app = remember(nav) { App(NavigationActions(nav)) }
-                val appComponent = remember(app) { AppComponent::class.create(context, app) }
+                val appComponent = remember(app) { appScopeManager.create(context, app) }
+                DisposableEffect(app) {
+                    onDispose { appScopeManager.clear() }
+                }
                 val presenterResolver = remember(appComponent) { appComponent.presenterResolver }
                 val screenFactory = remember(appComponent) {
-                    { ScreenComponent::class.create(appComponent) as ScreenComponentNode }
+                    ScreenComponentFactory { ScreenComponent::class.create(appComponent) }
                 }
                 val subscreenFactory = remember(appComponent) {
-                    { parent: ScreenComponentNode ->
+                    SubscreenComponentFactory { parent: ScreenComponentNode ->
                         val screenParent = parent as? ScreenComponent
                             ?: error("Cannot create subscreen from $parent")
-                        SubscreenComponent::class.create(screenParent) as SubscreenComponentNode
+                        SubscreenComponent::class.create(screenParent)
                     }
                 }
                 val onboardingStatus = appComponent.onboardingStatusProvider
