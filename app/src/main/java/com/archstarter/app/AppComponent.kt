@@ -30,8 +30,12 @@ import com.archstarter.feature.settings.impl.language.LanguageChooserScreenBindi
 import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Provides
 
-interface AppBindings :
-    ArticleDataBindings,
+@AppScope
+@Component
+abstract class AppComponent(
+    @get:Provides val context: Context,
+    @get:Provides val app: App,
+) : ArticleDataBindings,
     SettingsDataBindings,
     OnboardingAppBindings,
     CatalogAppBindings,
@@ -39,33 +43,24 @@ interface AppBindings :
     DetailAppBindings,
     SettingsPresenterBindings,
     LanguageChooserPresenterBindings {
-    @Provides
-    fun presenterResolver(resolver: InjectPresenterResolver): PresenterResolver = resolver
-}
-
-interface ScreenBindings :
-    OnboardingScreenBindings,
-    CatalogScreenBindings,
-    CatalogItemScreenBindings,
-    DetailScreenBindings,
-    SettingsScreenBindings,
-    LanguageChooserScreenBindings
-
-@AppScope
-@Component
-abstract class AppComponent(
-    @get:Provides val context: Context,
-    @get:Provides val app: App,
-) : AppBindings {
     abstract val presenterResolver: PresenterResolver
     abstract val onboardingStatusProvider: OnboardingStatusProvider
+
+    @Provides
+    protected fun providePresenterResolver(resolver: InjectPresenterResolver): PresenterResolver = resolver
 }
 
 @ScreenScope
 @Component
 abstract class ScreenComponent(
     @Component val appComponent: AppComponent,
-) : ScreenComponentNode, ScreenBindings {
+) : ScreenComponentNode,
+    OnboardingScreenBindings,
+    CatalogScreenBindings,
+    CatalogItemScreenBindings,
+    DetailScreenBindings,
+    SettingsScreenBindings,
+    LanguageChooserScreenBindings {
     protected abstract val node: DefaultScreenComponentNode
 
     override fun viewModelFactories(): Map<Class<out ViewModel>, AssistedVmFactory<out ViewModel>> =
@@ -76,7 +71,13 @@ abstract class ScreenComponent(
 @Component
 abstract class SubscreenComponent(
     @Component val parent: ScreenComponent,
-) : SubscreenComponentNode, ScreenBindings {
+) : SubscreenComponentNode,
+    OnboardingScreenBindings,
+    CatalogScreenBindings,
+    CatalogItemScreenBindings,
+    DetailScreenBindings,
+    SettingsScreenBindings,
+    LanguageChooserScreenBindings {
     protected abstract val node: DefaultSubscreenComponentNode
 
     override fun viewModelFactories(): Map<Class<out ViewModel>, AssistedVmFactory<out ViewModel>> =
