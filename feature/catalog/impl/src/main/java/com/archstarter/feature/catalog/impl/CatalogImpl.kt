@@ -12,6 +12,8 @@ import com.archstarter.core.common.viewmodel.scopedViewModel
 import com.archstarter.feature.catalog.api.CatalogPresenter
 import com.archstarter.feature.catalog.api.CatalogState
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
+import com.archstarter.core.di.InstallInAppComponent
+import com.archstarter.core.di.InstallInScreenComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -100,6 +102,7 @@ class CatalogViewModelFactory(
     override fun create(handle: SavedStateHandle): CatalogViewModel = create(handle)
 }
 
+@InstallInAppComponent
 interface CatalogAppBindings {
     @Provides
     @IntoMap
@@ -112,6 +115,7 @@ interface CatalogAppBindings {
         }
 }
 
+@InstallInScreenComponent
 interface CatalogScreenBindings {
     @Provides
     @IntoMap

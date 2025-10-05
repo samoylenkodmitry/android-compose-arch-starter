@@ -10,6 +10,8 @@ import com.archstarter.core.common.viewmodel.scopedViewModel
 import com.archstarter.feature.onboarding.api.OnboardingPresenter
 import com.archstarter.feature.onboarding.api.OnboardingState
 import com.archstarter.feature.onboarding.api.OnboardingStatusProvider
+import com.archstarter.core.di.InstallInAppComponent
+import com.archstarter.core.di.InstallInScreenComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +57,7 @@ class OnboardingViewModelFactory(
     override fun create(handle: SavedStateHandle): OnboardingViewModel = create(handle)
 }
 
+@InstallInAppComponent
 interface OnboardingAppBindings {
     @Provides
     fun provideOnboardingStatus(repo: OnboardingRepository): OnboardingStatusProvider = repo
@@ -70,6 +73,7 @@ interface OnboardingAppBindings {
         }
 }
 
+@InstallInScreenComponent
 interface OnboardingScreenBindings {
     @Provides
     @IntoMap

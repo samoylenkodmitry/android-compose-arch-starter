@@ -16,15 +16,22 @@ android {
   kotlinOptions { jvmTarget = "21" }
 }
 
+ksp {
+  arg("com.archstarter.di.moduleName", project.path)
+  arg("com.archstarter.di.metadataDir", rootProject.layout.buildDirectory.dir("di-metadata").get().asFile.absolutePath)
+}
+
 dependencies {
   implementation(project(":feature:detail:api"))
   implementation(project(":feature:catalog:impl"))
   implementation(project(":core:common"))
+  implementation(project(":core:di-annotations"))
   implementation(project(":feature:settings:api"))
   implementation(project(":feature:settings:impl"))
 
   implementation(libs.kotlin.inject.runtime)
   ksp(libs.kotlin.inject.compiler)
+  ksp(project(":tools:di-processor"))
   implementation(libs.lifecycle.viewmodel.compose)
 
   testImplementation(libs.junit)

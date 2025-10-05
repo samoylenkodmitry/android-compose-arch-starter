@@ -6,6 +6,7 @@ import com.archstarter.core.common.app.AppScope
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
+import com.archstarter.core.di.InstallInAppComponent
 import kotlinx.serialization.json.Json
 import me.tatarka.inject.annotations.Inject
 import me.tatarka.inject.annotations.Provides
@@ -126,6 +127,7 @@ class ArticleRepository @Inject constructor(
   }
 }
 
+@InstallInAppComponent
 interface ArticleDataBindings {
   @Provides
   @AppScope

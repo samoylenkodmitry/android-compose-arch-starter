@@ -18,6 +18,8 @@ import com.archstarter.feature.settings.api.languageCodes
 import java.util.LinkedHashMap
 import java.util.Locale
 import kotlinx.coroutines.Job
+import com.archstarter.core.di.InstallInAppComponent
+import com.archstarter.core.di.InstallInScreenComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -208,6 +210,7 @@ private fun com.archstarter.feature.settings.api.SettingsState.toLanguagePairOrN
     return LanguagePair(native, learning)
 }
 
+@InstallInAppComponent
 interface DetailAppBindings {
     @Provides
     @IntoMap
@@ -220,6 +223,7 @@ interface DetailAppBindings {
         }
 }
 
+@InstallInScreenComponent
 interface DetailScreenBindings {
     @Provides
     @IntoMap

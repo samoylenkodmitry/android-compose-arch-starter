@@ -36,6 +36,12 @@ android {
 
 }
 
+ksp {
+  arg("com.archstarter.di.moduleName", project.path)
+  arg("com.archstarter.di.metadataDir", rootProject.layout.buildDirectory.dir("di-metadata").get().asFile.absolutePath)
+  arg("com.archstarter.di.generateAggregates", "true")
+}
+
 dependencies {
   implementation(project(":core:designsystem"))
   implementation(project(":core:common"))
@@ -64,6 +70,7 @@ dependencies {
 
   implementation(libs.kotlin.inject.runtime)
   ksp(libs.kotlin.inject.compiler)
+  ksp(project(":tools:di-processor"))
 
   androidTestImplementation(libs.compose.ui.test.junit4)
   debugImplementation(libs.compose.ui.test.manifest)

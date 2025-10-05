@@ -30,5 +30,7 @@ include(
   ":feature:detail:impl",
   ":feature:settings:api",
   ":feature:settings:ui",
-  ":feature:settings:impl"
+  ":feature:settings:impl",
+  ":tools:di-processor",
+  ":core:di-annotations"
 )

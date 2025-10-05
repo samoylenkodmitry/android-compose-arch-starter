@@ -1,8 +1,10 @@
 package com.archstarter.feature.settings.impl.data
 
+import com.archstarter.core.di.InstallInAppComponent
 import com.archstarter.feature.settings.api.SettingsStateProvider
 import me.tatarka.inject.annotations.Provides
 
+@InstallInAppComponent
 interface SettingsDataBindings {
   @Provides
   fun provideSettingsStateProvider(

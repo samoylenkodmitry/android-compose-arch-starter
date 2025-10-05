@@ -1,10 +1,15 @@
 package com.archstarter.feature.settings.impl
 
+import androidx.compose.runtime.Composable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.archstarter.core.di.InstallInAppComponent
+import com.archstarter.core.di.InstallInScreenComponent
+import com.archstarter.core.common.presenter.PresenterProvider
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
+import com.archstarter.core.common.viewmodel.scopedViewModel
 import com.archstarter.feature.settings.api.LanguageChooserRole
 import com.archstarter.feature.settings.api.SettingsPresenter
 import com.archstarter.feature.settings.api.SettingsState
@@ -18,9 +23,6 @@ import me.tatarka.inject.annotations.Assisted
 import me.tatarka.inject.annotations.Inject
 import me.tatarka.inject.annotations.IntoMap
 import me.tatarka.inject.annotations.Provides
-import androidx.compose.runtime.Composable
-import com.archstarter.core.common.presenter.PresenterProvider
-import com.archstarter.core.common.viewmodel.scopedViewModel
 
 @Inject
 class SettingsViewModel(
@@ -79,6 +81,7 @@ class SettingsViewModelFactory(
     override fun create(handle: SavedStateHandle): SettingsViewModel = create(handle)
 }
 
+@InstallInScreenComponent
 interface SettingsScreenBindings {
     @Provides
     @IntoMap
@@ -86,6 +89,7 @@ interface SettingsScreenBindings {
         SettingsViewModel::class.java to factory
 }
 
+@InstallInAppComponent
 interface SettingsPresenterBindings {
     @Provides
     @IntoMap

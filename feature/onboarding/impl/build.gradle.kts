@@ -17,12 +17,19 @@ android {
   buildFeatures { compose = true }
 }
 
+ksp {
+  arg("com.archstarter.di.moduleName", project.path)
+  arg("com.archstarter.di.metadataDir", rootProject.layout.buildDirectory.dir("di-metadata").get().asFile.absolutePath)
+}
+
 dependencies {
   implementation(project(":feature:onboarding:api"))
   implementation(project(":core:common"))
+  implementation(project(":core:di-annotations"))
 
   implementation(libs.androidx.datastore.preferences)
   implementation(libs.kotlin.inject.runtime)
   ksp(libs.kotlin.inject.compiler)
+  ksp(project(":tools:di-processor"))
   implementation(libs.lifecycle.viewmodel.compose)
 }
