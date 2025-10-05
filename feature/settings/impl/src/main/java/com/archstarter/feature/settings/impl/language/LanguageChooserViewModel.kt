@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
+import com.archstarter.core.di.InstallInAppComponent
+import com.archstarter.core.di.InstallInScreenComponent
 import com.archstarter.feature.settings.api.LanguageChooserParams
 import com.archstarter.feature.settings.api.LanguageChooserPresenter
 import com.archstarter.feature.settings.api.LanguageChooserState
@@ -157,6 +159,7 @@ class LanguageChooserViewModelFactory(
     override fun create(handle: SavedStateHandle): LanguageChooserViewModel = create(handle)
 }
 
+@InstallInScreenComponent
 interface LanguageChooserScreenBindings {
     @Provides
     @IntoMap
@@ -164,6 +167,7 @@ interface LanguageChooserScreenBindings {
         LanguageChooserViewModel::class.java to factory
 }
 
+@InstallInAppComponent
 interface LanguageChooserPresenterBindings {
     @Provides
     @IntoMap

@@ -8,6 +8,8 @@ import com.archstarter.core.common.presenter.PresenterProvider
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
 import com.archstarter.core.common.viewmodel.scopedViewModel
+import com.archstarter.core.di.InstallInAppComponent
+import com.archstarter.core.di.InstallInScreenComponent
 import com.archstarter.feature.catalog.api.CatalogItem
 import com.archstarter.feature.catalog.api.CatalogItemPresenter
 import com.archstarter.feature.catalog.impl.data.ArticleRepo
@@ -115,6 +117,7 @@ private fun SettingsState.toLanguagePairOrNull(): LanguagePair? {
     return LanguagePair(native, learning)
 }
 
+@InstallInAppComponent
 interface CatalogItemAppBindings {
     @Provides
     @IntoMap
@@ -127,6 +130,7 @@ interface CatalogItemAppBindings {
         }
 }
 
+@InstallInScreenComponent
 interface CatalogItemScreenBindings {
     @Provides
     @IntoMap
