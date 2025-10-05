@@ -1,22 +1,19 @@
 package com.archstarter.app
 
+import android.content.Context
 import com.archstarter.core.common.app.App
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class AppScopeManager @Inject constructor(
-    private val builder: AppComponent.Builder
-) {
+class AppScopeManager {
     private var component: AppComponent? = null
 
-    fun create(app: App) {
+    fun create(context: Context, app: App): AppComponent {
         check(component == null) { "App scope already active" }
-        component = builder.app(app).build()
+        val created = AppComponent::class.create(context, app)
+        component = created
+        return created
     }
 
-    fun getComponent(): AppComponent =
-        component ?: error("App scope is not initialized")
+    fun component(): AppComponent = component ?: error("App scope is not initialized")
 
     fun clear() {
         component = null

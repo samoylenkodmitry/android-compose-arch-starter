@@ -1,7 +1,6 @@
 plugins {
   alias(libs.plugins.android.lib)
   alias(libs.plugins.kotlin.android)
-  alias(libs.plugins.hilt)
   alias(libs.plugins.ksp)
   alias(libs.plugins.kotlin.compose)
 }
@@ -32,10 +31,9 @@ dependencies {
   implementation("androidx.lifecycle:lifecycle-viewmodel-savedstate:2.9.3")
   implementation("androidx.savedstate:savedstate:1.2.1")
   implementation(libs.activity.compose)
-  implementation(libs.javax.inject)
-  implementation(libs.hilt.android)
+  implementation(libs.kotlin.inject.runtime)
   implementation(libs.navigation.compose)
-  ksp(libs.hilt.compiler)
+  ksp(libs.kotlin.inject.compiler)
   
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)

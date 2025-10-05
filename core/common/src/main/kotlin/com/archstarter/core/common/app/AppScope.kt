@@ -1,6 +1,6 @@
 package com.archstarter.core.common.app
 
-import javax.inject.Scope
+import me.tatarka.inject.annotations.Scope
 
 @Scope
 @Retention(AnnotationRetention.RUNTIME)

@@ -1,7 +1,6 @@
 plugins {
   alias(libs.plugins.android.app)
   alias(libs.plugins.kotlin.android)
-  alias(libs.plugins.hilt)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.ksp)
 }
@@ -37,6 +36,12 @@ android {
 
 }
 
+ksp {
+  arg("com.archstarter.di.moduleName", project.path)
+  arg("com.archstarter.di.metadataDir", rootProject.layout.buildDirectory.dir("di-metadata").get().asFile.absolutePath)
+  arg("com.archstarter.di.generateAggregates", "true")
+}
+
 dependencies {
   implementation(project(":core:designsystem"))
   implementation(project(":core:common"))
@@ -63,9 +68,9 @@ dependencies {
   implementation(libs.lifecycle.viewmodel.compose)
   implementation(libs.navigation.compose)
 
-  implementation(libs.hilt.android)
-  ksp(libs.hilt.compiler)
-  implementation(libs.hilt.nav.compose)
+  implementation(libs.kotlin.inject.runtime)
+  ksp(libs.kotlin.inject.compiler)
+  ksp(project(":tools:di-processor"))
 
   androidTestImplementation(libs.compose.ui.test.junit4)
   debugImplementation(libs.compose.ui.test.manifest)
