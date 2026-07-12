@@ -29,3 +29,9 @@ interface VmMapEntryPoint {
 interface SubVmMapEntryPoint {
   fun vmFactories(): Map<Class<out ViewModel>, @JvmSuppressWildcards AssistedVmFactory<out ViewModel>>
 }
+
+@EntryPoint
+@InstallIn(ScreenComponent::class)
+interface ScreenScopeHolderEntryPoint {
+  fun screenScopeHolder(): ScreenScopeHolder
+}

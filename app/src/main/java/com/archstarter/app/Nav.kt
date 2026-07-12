@@ -23,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.archstarter.core.common.app.App
 import com.archstarter.core.common.presenter.LocalPresenterResolver
+import com.archstarter.core.common.scope.LocalAppInstanceId
 import com.archstarter.core.common.scope.LocalScreenBuilder
 import com.archstarter.core.common.scope.ScreenComponent
 import com.archstarter.core.common.scope.ScreenScope
@@ -68,7 +69,10 @@ class MainActivity : ComponentActivity() {
                 }
                 CompositionLocalProvider(
                     LocalPresenterResolver provides resolver,
-                    LocalScreenBuilder provides screenBuilder
+                    LocalScreenBuilder provides screenBuilder,
+                    // Identity of the current App changes when the activity is recreated, which
+                    // triggers a rebuild of screen components (fixes the font-scale ANR/staleness).
+                    LocalAppInstanceId provides System.identityHashCode(app)
                 ) {
                     val onboardingCompleted by onboardingStatus.hasCompleted.collectAsStateWithLifecycle(initialValue = null)
                     val startDestinationState = remember { mutableStateOf<Any?>(null) }

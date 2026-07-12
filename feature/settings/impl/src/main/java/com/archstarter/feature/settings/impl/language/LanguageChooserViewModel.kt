@@ -2,8 +2,8 @@ package com.archstarter.feature.settings.impl.language
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.scope.ScreenComponent
+import com.archstarter.core.common.scope.ScreenViewModel
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
 import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.feature.settings.api.LanguageChooserParams
@@ -30,7 +30,7 @@ class LanguageChooserViewModel @AssistedInject constructor(
     private val repository: LanguageRepository,
     private val selectionBus: LanguageSelectionBus,
     @Suppress("unused") @Assisted private val savedStateHandle: SavedStateHandle,
-) : ViewModel(), LanguageChooserPresenter {
+) : ScreenViewModel(), LanguageChooserPresenter {
 
     private val _state = MutableStateFlow(LanguageChooserState())
     override val state: StateFlow<LanguageChooserState> = _state.asStateFlow()

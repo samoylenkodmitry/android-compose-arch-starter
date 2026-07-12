@@ -3,11 +3,11 @@ package com.archstarter.feature.catalog.impl
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.app.App
 import com.archstarter.core.common.presenter.PresenterProvider
 import com.archstarter.core.common.scope.ScreenBus
 import com.archstarter.core.common.scope.ScreenComponent
+import com.archstarter.core.common.scope.ScreenViewModel
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
 import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.core.common.viewmodel.scopedViewModel
@@ -40,7 +40,7 @@ class CatalogViewModel @AssistedInject constructor(
     private val bridge: CatalogBridge,
     private val screenBus: ScreenBus, // from Screen/Subscreen (inherited)
     @Assisted private val handle: SavedStateHandle
-) : ViewModel(), CatalogPresenter {
+) : ScreenViewModel(), CatalogPresenter {
     private val _state = MutableStateFlow(CatalogState())
     override val state: StateFlow<CatalogState> = _state
 

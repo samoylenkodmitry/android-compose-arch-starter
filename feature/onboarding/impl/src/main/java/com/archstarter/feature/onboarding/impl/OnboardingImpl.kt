@@ -3,9 +3,9 @@ package com.archstarter.feature.onboarding.impl
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.archstarter.core.common.presenter.PresenterProvider
 import com.archstarter.core.common.scope.ScreenComponent
+import com.archstarter.core.common.scope.ScreenViewModel
 import com.archstarter.core.common.viewmodel.AssistedVmFactory
 import com.archstarter.core.common.viewmodel.VmKey
 import com.archstarter.core.common.viewmodel.scopedViewModel
@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 class OnboardingViewModel @AssistedInject constructor(
     private val repository: OnboardingRepository,
     @Assisted private val handle: SavedStateHandle,
-) : ViewModel(), OnboardingPresenter {
+) : ScreenViewModel(), OnboardingPresenter {
     private val _state = MutableStateFlow(OnboardingState())
     override val state: StateFlow<OnboardingState> = _state.asStateFlow()
 
