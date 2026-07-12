@@ -1,14 +1,19 @@
 package com.archstarter.core.common.presenter
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.lifecycle.compose.LifecycleStartEffect
 import com.archstarter.core.common.BuildConfig
 import kotlin.reflect.KClass
 
 interface ParamInit<P> {
   fun initOnce(params: P?)
+}
+
+/** Implement in a presenter to be notified when its screen leaves the foreground (ON_STOP). */
+interface LifecycleStop {
+  fun onStop()
 }
 
 interface PresenterResolver {
@@ -31,8 +36,14 @@ inline fun <reified P : ParamInit<Params>, Params> rememberPresenter(
     ?: presenterMock(P::class, key)
     ?: error("No presenter for ${P::class.simpleName} with key=$key")
 
-  LaunchedEffect(presenter, params) {
+  // LifecycleStartEffect (not LaunchedEffect) so initOnce re-runs each time the screen returns to
+  // the foreground and LifecycleStop.onStop fires when it leaves — keeps presenter subscriptions in
+  // step with visibility instead of running once and leaking while off-screen.
+  LifecycleStartEffect(presenter, params) {
     (presenter as? ParamInit<Params>)?.initOnce(params)
+    onStopOrDispose {
+      (presenter as? LifecycleStop)?.onStop()
+    }
   }
   return presenter
 }
