@@ -59,6 +59,12 @@ jobs:
             core.setOutput('head_repo', pr.data.head.repo.full_name);
             core.setOutput('head_sha', pr.data.head.sha);
 
+      - name: Reject fork pull requests
+        if: steps.trigger.outputs.should_run == 'true' && steps.prinfo.outputs.head_repo != github.repository
+        run: |
+          echo "Fork pull-request builds are disabled." >&2
+          exit 1
+
       - name: Checkout PR merge ref
         id: checkout-merge
         if: steps.trigger.outputs.should_run == 'true'
