@@ -3,8 +3,6 @@ import org.gradle.api.JavaVersion
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.android.lib)
-  alias(libs.plugins.compose.multiplatform)
-  alias(libs.plugins.kotlin.compose)
 }
 
 kotlin {
@@ -17,26 +15,17 @@ kotlin {
   sourceSets {
     val commonMain by getting {
       dependencies {
-        implementation(compose.runtime)
-        implementation(compose.foundation)
-        implementation(compose.material3)
-      }
-    }
-    val androidMain by getting {
-      dependencies {
-        implementation(compose.ui)
+        implementation(libs.kotlinx.coroutines.core)
       }
     }
     val commonTest by getting {
-      dependencies {
-        implementation(kotlin("test"))
-      }
+      dependencies { implementation(kotlin("test")) }
     }
   }
 }
 
 android {
-  namespace = "com.archstarter.core.designsystem"
+  namespace = "com.archstarter.shared.data"
   compileSdk = 35
   defaultConfig { minSdk = 33 }
   compileOptions {

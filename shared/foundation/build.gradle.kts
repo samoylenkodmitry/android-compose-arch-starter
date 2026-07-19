@@ -19,12 +19,6 @@ kotlin {
       dependencies {
         implementation(compose.runtime)
         implementation(compose.foundation)
-        implementation(compose.material3)
-      }
-    }
-    val androidMain by getting {
-      dependencies {
-        implementation(compose.ui)
       }
     }
     val commonTest by getting {
@@ -36,7 +30,7 @@ kotlin {
 }
 
 android {
-  namespace = "com.archstarter.core.designsystem"
+  namespace = "com.archstarter.shared.foundation"
   compileSdk = 35
   defaultConfig { minSdk = 33 }
   compileOptions {
